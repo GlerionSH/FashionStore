@@ -1,0 +1,6 @@
+// README para componentes de Dashboard
+// Aquí irán componentes como:
+// - StatsCard.astro - Tarjetas de estadísticas
+// - SalesChart.astro - Gráfica de ventas
+// - RecentActivity.astro - Lista de actividades recientes
+// - TopProducts.astro - Productos más vendidos

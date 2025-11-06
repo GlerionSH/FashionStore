@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmar reautenticación - Victoria CRM</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f3f4f6;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .email-header {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            padding: 40px 30px;
+            text-align: center;
+        }
+        
+        .logo {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+        }
+        
+        .logo svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .email-header h1 {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .email-header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+        }
+        
+        .email-body {
+            padding: 40px 30px;
+        }
+        
+        .email-body h2 {
+            color: #1f2937;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .email-body p {
+            color: #4b5563;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        
+        .token-box {
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            border: 3px dashed #6366f1;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .token-label {
+            font-size: 14px;
+            color: #6b7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+        }
+        
+        .token-code {
+            font-size: 42px;
+            font-weight: 800;
+            color: #6366f1;
+            letter-spacing: 8px;
+            font-family: 'Courier New', monospace;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 8px;
+            display: inline-block;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+            user-select: all;
+        }
+        
+        .copy-instructions {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .copy-instructions p {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 0;
+        }
+        
+        .warning-box {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .warning-box p {
+            color: #92400e;
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .info-box {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .info-box p {
+            color: #1e40af;
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .security-badge {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 20px 0;
+        }
+        
+        .security-badge svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .steps-container {
+            background-color: #f9fafb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .steps-container h3 {
+            color: #1f2937;
+            font-size: 16px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .step {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: start;
+        }
+        
+        .step-number {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex: 1;
+            padding-top: 2px;
+        }
+        
+        .step-content p {
+            color: #4b5563;
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .email-footer {
+            background-color: #f9fafb;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .email-footer p {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .email-footer a {
+            color: #6366f1;
+            text-decoration: none;
+        }
+        
+        .social-links {
+            margin-top: 20px;
+        }
+        
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .divider {
+            height: 1px;
+            background-color: #e5e7eb;
+            margin: 30px 0;
+        }
+        
+        .highlight {
+            background-color: #fef3c7;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        @media only screen and (max-width: 600px) {
+            .email-header {
+                padding: 30px 20px;
+            }
+            
+            .email-header h1 {
+                font-size: 24px;
+            }
+            
+            .email-body {
+                padding: 30px 20px;
+            }
+            
+            .token-code {
+                font-size: 32px;
+                letter-spacing: 4px;
+                padding: 15px 20px;
+            }
+            
+            .email-footer {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="email-header">
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" width="60" height="60">
+                    <circle cx="30" cy="30" r="28" fill="white" opacity="0.2"/>
+                    <circle cx="30" cy="30" r="24" fill="white"/>
+                    <rect x="20" y="22" width="20" height="16" rx="2" stroke="#6366f1" stroke-width="2" fill="white"/>
+                    <path d="M24 22V18a6 6 0 0 1 12 0v4" stroke="#6366f1" stroke-width="2" fill="none"/>
+                    <circle cx="30" cy="32" r="2" fill="#6366f1"/>
+                </svg>
+            </div>
+            <h1>Código de Reautenticación</h1>
+            <p>Verifica tu identidad</p>
+        </div>
+        
+        <!-- Body -->
+        <div class="email-body">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div class="security-badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        <polyline points="9 12 11 14 15 10"></polyline>
+                    </svg>
+                    Verificación de Seguridad
+                </div>
+            </div>
+            
+            <h2>Confirma tu reautenticación</h2>
+            <p>Se ha solicitado una reautenticación de tu cuenta en <strong>Victoria CRM</strong> por razones de seguridad.</p>
+            
+            <div class="token-box">
+                <div class="token-label">Tu código de verificación es:</div>
+                <div class="token-code">{{ .Token }}</div>
+                
+                <div class="copy-instructions">
+                    <p>💡 Haz clic en el código para seleccionarlo y copiarlo</p>
+                </div>
+            </div>
+            
+            <div class="warning-box">
+                <p><strong>⚠️ Importante:</strong> Este código expirará en <span class="highlight">10 minutos</span> por razones de seguridad.</p>
+            </div>
+            
+            <div class="steps-container">
+                <h3>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1f2937" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    Cómo usar tu código:
+                </h3>
+                
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <p>Regresa a la ventana de Victoria CRM donde se solicitó la reautenticación</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <p>Ingresa el código de 6 dígitos en el campo de verificación</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <p>Haz clic en "Verificar" para completar el proceso</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <p><strong>🔒 Seguridad:</strong> Si no solicitaste esta reautenticación, cambia tu contraseña inmediatamente y <a href="mailto:soporte@victoriacrm.com" style="color: #1e40af; text-decoration: underline;">contáctanos</a> para asegurar tu cuenta.</p>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; text-align: center;">
+                <p style="margin: 0; color: #166534; font-size: 14px;">
+                    <strong>📱 Mantén este código seguro</strong><br>
+                    No compartas este código con nadie. El equipo de Victoria CRM nunca te pedirá este código por teléfono, email o mensaje.
+                </p>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <p style="font-size: 14px; color: #6b7280;">
+                <strong>¿No solicitaste esto?</strong><br>
+                Si no iniciaste este proceso de reautenticación, por favor <a href="mailto:soporte@victoriacrm.com" style="color: #6366f1;">contáctanos inmediatamente</a> para ayudarte a proteger tu cuenta.
+            </p>
+        </div>
+        
+        <!-- Footer -->
+        <div class="email-footer">
+            <p><strong>Victoria CRM</strong></p>
+            <p>Tu solución completa para la gestión de relaciones con clientes</p>
+            
+            <div class="divider" style="margin: 20px auto; max-width: 200px;"></div>
+            
+            <p>
+                ¿Necesitas ayuda? 
+                <a href="mailto:soporte@victoriacrm.com">Contáctanos</a>
+            </p>
+            
+            <div class="social-links">
+                <a href="#">Facebook</a> • 
+                <a href="#">Twitter</a> • 
+                <a href="#">LinkedIn</a>
+            </div>
+            
+            <p style="margin-top: 20px; font-size: 12px; color: #9ca3af;">
+                © 2025 Victoria CRM. Todos los derechos reservados.
+            </p>
+            
+            <p style="font-size: 11px; color: #9ca3af; margin-top: 10px;">
+                Este es un correo automático, por favor no respondas a este mensaje.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,7 @@
+// README para componentes de Clientes
+// Aquí irán componentes como:
+// - CustomerList.astro - Lista de clientes
+// - CustomerCard.astro - Tarjeta de cliente
+// - CustomerForm.astro - Formulario de cliente
+// - CustomerDetails.astro - Detalles del cliente
+// - CustomerFilters.astro - Filtros de búsqueda

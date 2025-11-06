@@ -1,0 +1,372 @@
+---
+/**
+ * EJEMPLOS DE USO - Sistema de Autenticación Victoria CRM
+ * 
+ * Este archivo contiene ejemplos de cómo utilizar el sistema de 
+ * autenticación en tus componentes y páginas.
+ */
+---
+
+<div class="documentation">
+  <h1>📖 Ejemplos de Uso - Autenticación Victoria CRM</h1>
+
+  <!-- EJEMPLO 1: Verificar si usuario está autenticado -->
+  <section>
+    <h2>1️⃣ Verificar si el usuario está autenticado</h2>
+    
+    <h3>En componente Astro:</h3>
+    <pre><code>{`
+---
+import { getCurrentUser } from '../lib/services/authService';
+
+const user = await getCurrentUser();
+const isAuthenticated = !!user;
+---
+
+{isAuthenticated ? (
+  <p>Bienvenido {user.email}</p>
+) : (
+  <p>Por favor, inicia sesión</p>
+)}
+    `}</code></pre>
+
+    <h3>En cliente (JavaScript):</h3>
+    <pre><code>{`
+async function checkAuth() {
+  const response = await fetch('/api/auth/me');
+  const data = await response.json();
+  
+  if (data.success) {
+    console.log('Usuario autenticado:', data.user);
+  } else {
+    console.log('No hay usuario autenticado');
+  }
+}
+    `}</code></pre>
+  </section>
+
+  <!-- EJEMPLO 2: Procesar login manualmente -->
+  <section>
+    <h2>2️⃣ Procesar login manualmente</h2>
+    
+    <pre><code>{`
+async function handleLogin() {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      console.log('Inicio de sesión exitoso');
+      window.location.href = '/dashboard';
+    } else {
+      console.error('Error:', data.error);
+    }
+  } catch (error) {
+    console.error('Error de conexión:', error);
+  }
+}
+    `}</code></pre>
+  </section>
+
+  <!-- EJEMPLO 3: Procesar signup manualmente -->
+  <section>
+    <h2>3️⃣ Procesar signup manualmente</h2>
+    
+    <pre><code>{`
+async function handleSignup() {
+  const fullName = document.getElementById('fullName').value;
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  
+  try {
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fullName, email, password }),
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      console.log('Registro exitoso');
+      window.location.href = '/dashboard';
+    } else {
+      console.error('Error:', data.error);
+    }
+  } catch (error) {
+    console.error('Error de conexión:', error);
+  }
+}
+    `}</code></pre>
+  </section>
+
+  <!-- EJEMPLO 4: Cerrar sesión -->
+  <section>
+    <h2>4️⃣ Cerrar sesión</h2>
+    
+    <pre><code>{`
+async function handleLogout() {
+  try {
+    const response = await fetch('/api/auth/logout', {
+      method: 'POST',
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      console.log('Sesión cerrada');
+      window.location.href = '/auth/login';
+    } else {
+      console.error('Error:', data.error);
+    }
+  } catch (error) {
+    console.error('Error de conexión:', error);
+  }
+}
+    `}</code></pre>
+  </section>
+
+  <!-- EJEMPLO 5: Integrar UserProfile en navbar -->
+  <section>
+    <h2>5️⃣ Integrar componente de perfil en navbar</h2>
+    
+    <pre><code>{`
+---
+import UserProfile from '../components/auth/UserProfile.astro';
+---
+
+<nav class="navbar">
+  <div class="nav-left">
+    <h1>Victoria CRM</h1>
+  </div>
+  
+  <div class="nav-right">
+    <UserProfile />
+  </div>
+</nav>
+    `}</code></pre>
+  </section>
+
+  <!-- EJEMPLO 6: Mostrar información del usuario en página -->
+  <section>
+    <h2>6️⃣ Mostrar información del usuario en página</h2>
+    
+    <pre><code>{`
+---
+import { getCurrentUser } from '../lib/services/authService';
+
+const user = await getCurrentUser();
+if (!user) {
+  return Astro.redirect('/auth/login');
+}
+
+const fullName = user.user_metadata?.full_name || 'Usuario';
+const email = user.email;
+---
+
+<div class="profile-info">
+  <h1>Perfil de {fullName}</h1>
+  <p>Email: {email}</p>
+  <p>ID: {user.id}</p>
+  <p>Creado: {new Date(user.created_at).toLocaleDateString()}</p>
+</div>
+    `}</code></pre>
+  </section>
+
+  <!-- EJEMPLO 7: Validar email en servidor -->
+  <section>
+    <h2>7️⃣ Validar email en servidor (endpoint)</h2>
+    
+    <pre><code>{`
+// src/pages/api/auth/check-email.ts
+
+export async function POST(context: any) {
+  const { email } = await context.request.json();
+  
+  // Aquí puedes hacer validaciones adicionales
+  const isValidEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);
+  
+  return new Response(
+    JSON.stringify({
+      valid: isValidEmail,
+      available: true, // Aquí puedes verificar en BD
+    }),
+    { status: 200 }
+  );
+}
+    `}</code></pre>
+  </section>
+
+  <!-- EJEMPLO 8: Proteger ruta personalizada -->
+  <section>
+    <h2>8️⃣ Proteger ruta personalizada con middleware</h2>
+    
+    <pre><code>{`
+// src/middleware.ts - Ya está configurado, pero puedes personalizarlo
+
+export async function onRequest(context: any, next: any) {
+  const publicRoutes = ['/auth/login', '/auth/signup'];
+  const currentPath = new URL(context.request.url).pathname;
+  
+  // Permitir rutas públicas
+  if (publicRoutes.some(route => currentPath.startsWith(route))) {
+    return next();
+  }
+  
+  // Aquí va tu lógica de protección
+  const session = await getCurrentSession();
+  if (!session) {
+    return context.redirect('/auth/login');
+  }
+  
+  return next();
+}
+    `}</code></pre>
+  </section>
+
+  <!-- EJEMPLO 9: Componente con lógica condicional -->
+  <section>
+    <h2>9️⃣ Componente con lógica condicional de autenticación</h2>
+    
+    <pre><code>{`
+---
+// src/components/dashboard/Dashboard.astro
+import { getCurrentUser } from '../../lib/services/authService';
+
+const user = await getCurrentUser();
+
+if (!user) {
+  // Redirigir si no está autenticado
+  return Astro.redirect('/auth/login');
+}
+
+const fullName = user.user_metadata?.full_name || 'Usuario';
+---
+
+<div class="dashboard">
+  <header>
+    <h1>Bienvenido, {fullName}</h1>
+  </header>
+  
+  <main>
+    <!-- Contenido del dashboard -->
+  </main>
+</div>
+    `}</code></pre>
+  </section>
+
+  <!-- EJEMPLO 10: Manejo de errores -->
+  <section>
+    <h2>🔟 Manejo de errores en autenticación</h2>
+    
+    <pre><code>{`
+async function loginWithErrorHandling() {
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(\`HTTP error! status: \${response.status}\`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      // Mostrar error específico
+      if (data.error.includes('Invalid')) {
+        showError('Credenciales inválidas');
+      } else if (data.error.includes('not found')) {
+        showError('Usuario no encontrado');
+      } else {
+        showError(data.error);
+      }
+      return;
+    }
+    
+    // Éxito
+    window.location.href = '/dashboard';
+    
+  } catch (error) {
+    console.error('Error:', error);
+    showError('Error de conexión. Intenta nuevamente.');
+  }
+}
+    `}</code></pre>
+  </section>
+
+</div>
+
+<style>
+  .documentation {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: system-ui, sans-serif;
+    line-height: 1.6;
+    color: #333;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+    margin-bottom: 2rem;
+    color: #6366f1;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    color: #4f46e5;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 0.5rem;
+  }
+
+  h3 {
+    font-size: 1.1rem;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    color: #6366f1;
+  }
+
+  section {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  pre {
+    background: #1f2937;
+    color: #e5e7eb;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  p {
+    margin: 0.5rem 0;
+  }
+</style>

@@ -1,0 +1,7 @@
+// README para componentes de Ventas
+// Aquí irán componentes como:
+// - SaleList.astro - Lista de ventas
+// - SaleForm.astro - Formulario de venta
+// - SaleDetails.astro - Detalles de la venta
+// - SaleItems.astro - Items de la venta
+// - SaleStatus.astro - Estado de la venta

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirma tu registro - Victoria CRM</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f3f4f6;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .email-header {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            padding: 40px 30px;
+            text-align: center;
+        }
+        
+        .logo {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+        }
+        
+        .logo svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .email-header h1 {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .email-header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+        }
+        
+        .email-body {
+            padding: 40px 30px;
+        }
+        
+        .email-body h2 {
+            color: #1f2937;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .email-body p {
+            color: #4b5563;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        
+        .confirmation-box {
+            background-color: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .confirmation-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: #ffffff;
+            text-decoration: none;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+            transition: transform 0.2s;
+        }
+        
+        .confirmation-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+        }
+        
+        .alternative-link {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .alternative-link p {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 10px;
+        }
+        
+        .alternative-link a {
+            color: #6366f1;
+            word-break: break-all;
+            font-size: 13px;
+        }
+        
+        .info-box {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .info-box p {
+            color: #1e40af;
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .email-footer {
+            background-color: #f9fafb;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .email-footer p {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .email-footer a {
+            color: #6366f1;
+            text-decoration: none;
+        }
+        
+        .social-links {
+            margin-top: 20px;
+        }
+        
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .divider {
+            height: 1px;
+            background-color: #e5e7eb;
+            margin: 30px 0;
+        }
+        
+        @media only screen and (max-width: 600px) {
+            .email-header {
+                padding: 30px 20px;
+            }
+            
+            .email-header h1 {
+                font-size: 24px;
+            }
+            
+            .email-body {
+                padding: 30px 20px;
+            }
+            
+            .confirmation-button {
+                padding: 12px 24px;
+                font-size: 14px;
+            }
+            
+            .email-footer {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="email-header">
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" width="60" height="60">
+                    <circle cx="30" cy="30" r="28" fill="white" opacity="0.2"/>
+                    <circle cx="30" cy="30" r="24" fill="white"/>
+                    <path d="M22 30L27 35L40 22" stroke="#6366f1" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <h1>¡Bienvenido a Victoria CRM!</h1>
+            <p>Estás a un paso de comenzar</p>
+        </div>
+        
+        <!-- Body -->
+        <div class="email-body">
+            <h2>Confirma tu registro</h2>
+            <p>¡Gracias por registrarte en Victoria CRM! Para completar tu registro y comenzar a usar nuestra plataforma, necesitamos confirmar tu dirección de correo electrónico.</p>
+            
+            <div class="confirmation-box">
+                <p style="margin-bottom: 20px; color: #1f2937; font-weight: 600;">
+                    Haz clic en el botón de abajo para confirmar tu cuenta:
+                </p>
+                <a href="{{ .ConfirmationURL }}" class="confirmation-button">
+                    Confirmar mi correo electrónico
+                </a>
+                
+                <div class="alternative-link">
+                    <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+                    <a href="{{ .ConfirmationURL }}">{{ .ConfirmationURL }}</a>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <p><strong>⏱️ Importante:</strong> Este enlace expirará en 24 horas por razones de seguridad.</p>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <h2 style="font-size: 18px;">¿Qué viene después?</h2>
+            <p>Una vez que confirmes tu correo, podrás:</p>
+            <ul style="color: #4b5563; margin-left: 20px; margin-bottom: 15px;">
+                <li style="margin-bottom: 8px;">Acceder a tu panel de control personalizado</li>
+                <li style="margin-bottom: 8px;">Gestionar tus clientes y contactos</li>
+                <li style="margin-bottom: 8px;">Crear y administrar ventas</li>
+                <li style="margin-bottom: 8px;">Generar reportes y análisis en tiempo real</li>
+            </ul>
+            
+            <div class="divider"></div>
+            
+            <p style="font-size: 14px; color: #6b7280;">
+                Si no creaste esta cuenta, puedes ignorar este correo de forma segura.
+            </p>
+        </div>
+        
+        <!-- Footer -->
+        <div class="email-footer">
+            <p><strong>Victoria CRM</strong></p>
+            <p>Tu solución completa para la gestión de relaciones con clientes</p>
+            
+            <div class="divider" style="margin: 20px auto; max-width: 200px;"></div>
+            
+            <p>
+                ¿Necesitas ayuda? 
+                <a href="mailto:soporte@victoriacrm.com">Contáctanos</a>
+            </p>
+            
+            <div class="social-links">
+                <a href="#">Facebook</a> • 
+                <a href="#">Twitter</a> • 
+                <a href="#">LinkedIn</a>
+            </div>
+            
+            <p style="margin-top: 20px; font-size: 12px; color: #9ca3af;">
+                © 2025 Victoria CRM. Todos los derechos reservados.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
