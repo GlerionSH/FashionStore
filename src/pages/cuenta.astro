@@ -1,0 +1,143 @@
+---
+import StoreLayout from '../layouts/StoreLayout.astro';
+import { createClient } from '@supabase/supabase-js';
+import { formatPriceEURFromCents } from '../lib/price';
+
+export const prerender = false;
+
+Astro.response.headers.set('Cache-Control', 'no-store, max-age=0');
+
+type OrderRow = {
+	id: string;
+	created_at: string;
+	total_cents: number;
+	status: string;
+};
+
+const token = Astro.cookies.get('sb-access-token')?.value;
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const anonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !anonKey) {
+	throw new Error('Supabase no está configurado');
+}
+
+const sb = createClient(supabaseUrl, anonKey, {
+	auth: { persistSession: false, autoRefreshToken: false },
+	global: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+});
+
+const { data: userData } = await sb.auth.getUser();
+const user = userData.user;
+
+let orders: OrderRow[] = [];
+let ordersError: string | null = null;
+
+if (user) {
+	const { data, error } = await (sb as any)
+		.from('fs_orders')
+		.select('id,created_at,total_cents,status')
+		.eq('user_id', user.id)
+		.order('created_at', { ascending: false })
+		.limit(5);
+
+	if (error) {
+		ordersError = error.message || 'Error cargando pedidos';
+	} else {
+		orders = data ?? [];
+	}
+}
+
+const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
+---
+
+<StoreLayout title="Mi cuenta - Fashion Store">
+	<!-- Breadcrumb -->
+	<div class="container" style="padding-top: 2rem;">
+		<nav style="font-size: 0.75rem; color: #9ca3af;">
+			<a href="/" style="transition: color 0.2s;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#9ca3af'">Home</a>
+			<span style="margin: 0 0.5rem;">/</span>
+			<span style="color: #111;">Mi cuenta</span>
+		</nav>
+	</div>
+
+	<section style="padding: 2rem 0 4rem;">
+		<div class="container">
+			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 2rem; flex-wrap: wrap; margin-bottom: 3rem;">
+				<div>
+					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
+						Mi cuenta
+					</h1>
+					{user?.email && (
+						<p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem;">{user.email}</p>
+					)}
+				</div>
+				<form method="POST" action="/auth/logout" style="margin: 0;">
+					<button type="submit" class="btn-secondary" style="padding: 0.625rem 1.5rem;">
+						Cerrar sesion
+					</button>
+				</form>
+			</div>
+
+			<!-- Navigation -->
+			<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 3rem;">
+				<a href="/cuenta/pedidos" style="display: block; padding: 1.5rem; border: 1px solid #e5e7eb; text-align: center; transition: border-color 0.2s;" onmouseover="this.style.borderColor='#111'" onmouseout="this.style.borderColor='#e5e7eb'">
+					<p style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af; margin: 0 0 0.5rem;">Ver todos</p>
+					<h3 style="font-size: 0.875rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">Mis pedidos</h3>
+				</a>
+				<a href="/carrito" style="display: block; padding: 1.5rem; border: 1px solid #e5e7eb; text-align: center; transition: border-color 0.2s;" onmouseover="this.style.borderColor='#111'" onmouseout="this.style.borderColor='#e5e7eb'">
+					<p style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af; margin: 0 0 0.5rem;">Continuar</p>
+					<h3 style="font-size: 0.875rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">Carrito</h3>
+				</a>
+				<a href="/productos" style="display: block; padding: 1.5rem; border: 1px solid #e5e7eb; text-align: center; transition: border-color 0.2s;" onmouseover="this.style.borderColor='#111'" onmouseout="this.style.borderColor='#e5e7eb'">
+					<p style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af; margin: 0 0 0.5rem;">Explorar</p>
+					<h3 style="font-size: 0.875rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">Productos</h3>
+				</a>
+			</div>
+
+			<!-- Recent Orders -->
+			<div>
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb;">
+					<h2 style="font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">
+						Pedidos recientes
+					</h2>
+					<a href="/cuenta/pedidos" style="font-size: 0.75rem; color: #6b7280; text-decoration: underline;">Ver todos</a>
+				</div>
+
+				{ordersError && <div class="alert alert-error">{ordersError}</div>}
+
+				{!ordersError && orders.length === 0 && (
+					<p style="font-size: 0.875rem; color: #9ca3af; text-align: center; padding: 2rem 0;">
+						No tienes pedidos todavia
+					</p>
+				)}
+
+				{orders.length > 0 && (
+					<div style="display: flex; flex-direction: column; gap: 1px; background: #e5e7eb;">
+						{orders.map((o) => (
+							<a href={`/cuenta/pedidos/${o.id}`} style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; padding: 1rem 0; background: #fff; transition: background 0.2s;" onmouseover="this.style.background='#fafafa'" onmouseout="this.style.background='#fff'">
+								<div>
+									<p style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin: 0 0 0.25rem;">Pedido</p>
+									<p style="font-size: 0.8125rem; margin: 0;">{o.id.slice(0, 8)}...</p>
+								</div>
+								<div>
+									<p style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin: 0 0 0.25rem;">Fecha</p>
+									<p style="font-size: 0.8125rem; margin: 0;">{new Date(o.created_at).toLocaleDateString()}</p>
+								</div>
+								<div>
+									<p style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin: 0 0 0.25rem;">Total</p>
+									<p style="font-size: 0.8125rem; margin: 0;">{formatPrice(o.total_cents)}</p>
+								</div>
+								<div>
+									<p style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin: 0 0 0.25rem;">Estado</p>
+									<p style="font-size: 0.8125rem; margin: 0; text-transform: capitalize;">{o.status}</p>
+								</div>
+							</a>
+						))}
+					</div>
+				)}
+			</div>
+		</div>
+	</section>
+</StoreLayout>

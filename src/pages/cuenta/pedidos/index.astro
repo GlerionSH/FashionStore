@@ -1,0 +1,130 @@
+---
+import StoreLayout from '../../../layouts/StoreLayout.astro';
+import { createClient } from '@supabase/supabase-js';
+import { formatPriceEURFromCents } from '../../../lib/price';
+
+export const prerender = false;
+
+Astro.response.headers.set('Cache-Control', 'no-store, max-age=0');
+
+type OrderRow = {
+	id: string;
+	created_at: string;
+	total_cents: number;
+	status: string;
+	invoice_token: string | null;
+	invoice_number: string | null;
+};
+
+const token = Astro.cookies.get('sb-access-token')?.value;
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const anonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !anonKey) {
+	throw new Error('Supabase no está configurado');
+}
+
+const sb = createClient(supabaseUrl, anonKey, {
+	auth: { persistSession: false, autoRefreshToken: false },
+	global: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+});
+
+const { data: userData } = await sb.auth.getUser();
+const user = userData.user;
+
+let orders: OrderRow[] = [];
+let error: string | null = null;
+
+if (!user) {
+	return Astro.redirect('/auth/login');
+}
+
+const { data, error: ordersError } = await (sb as any)
+	.from('fs_orders')
+	.select('id,created_at,total_cents,status,invoice_token,invoice_number')
+	.eq('user_id', user.id)
+	.order('created_at', { ascending: false });
+
+if (ordersError) {
+	error = ordersError.message || 'Error cargando pedidos';
+} else {
+	orders = data ?? [];
+}
+
+const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
+---
+
+<StoreLayout title="Mis pedidos - Fashion Store">
+	<!-- Breadcrumb -->
+	<div class="container" style="padding-top: 2rem;">
+		<nav style="font-size: 0.75rem; color: #9ca3af;">
+			<a href="/" style="transition: color 0.2s;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#9ca3af'">Home</a>
+			<span style="margin: 0 0.5rem;">/</span>
+			<a href="/cuenta" style="transition: color 0.2s;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#9ca3af'">Mi cuenta</a>
+			<span style="margin: 0 0.5rem;">/</span>
+			<span style="color: #111;">Pedidos</span>
+		</nav>
+	</div>
+
+	<section style="padding: 2rem 0 4rem;">
+		<div class="container">
+			<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 2rem;">
+				Mis pedidos
+			</h1>
+
+			{error && <div class="alert alert-error" style="margin-bottom: 1.5rem;">{error}</div>}
+
+			{!error && orders.length === 0 && (
+				<div style="text-align: center; padding: 3rem 0; border: 1px solid #e5e7eb;">
+					<p style="font-size: 0.875rem; color: #9ca3af; margin: 0 0 1.5rem;">
+						No tienes pedidos todavia
+					</p>
+					<a href="/productos" class="btn-primary">Ver productos</a>
+				</div>
+			)}
+
+			{orders.length > 0 && (
+				<div>
+					<!-- Table Header -->
+					<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 80px; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #111; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280;">
+						<div>Pedido</div>
+						<div>Fecha</div>
+						<div style="text-align: right;">Total</div>
+						<div>Estado</div>
+						<div></div>
+					</div>
+
+					<!-- Table Rows -->
+					{orders.map((o) => (
+						<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 80px; gap: 1rem; padding: 1.25rem 0; border-bottom: 1px solid #e5e7eb; align-items: center;">
+							<div style="font-size: 0.8125rem; font-family: monospace;">{o.id.slice(0, 8)}...</div>
+							<div style="font-size: 0.8125rem; color: #6b7280;">{new Date(o.created_at).toLocaleDateString()}</div>
+							<div style="font-size: 0.8125rem; text-align: right;">{formatPrice(o.total_cents)}</div>
+							<div>
+								<span style="font-size: 0.6875rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 0.25rem 0.5rem; background: #f5f5f5;">
+									{o.status}
+								</span>
+							</div>
+							<div style="text-align: right;">
+								<a href={`/cuenta/pedidos/${encodeURIComponent(o.id)}`} style="font-size: 0.75rem; color: #111; text-decoration: underline;">
+									Ver
+								</a>
+								{o.status === 'paid' && o.invoice_token && (
+									<div style="margin-top: 0.5rem;">
+										<a
+											href={`/api/orders/${encodeURIComponent(o.id)}/invoice.pdf?token=${encodeURIComponent(o.invoice_token)}`}
+											style="font-size: 0.75rem; color: #111; text-decoration: underline;"
+										>
+											Descargar factura (PDF)
+										</a>
+									</div>
+								)}
+							</div>
+						</div>
+					))}
+				</div>
+			)}
+		</div>
+	</section>
+</StoreLayout>

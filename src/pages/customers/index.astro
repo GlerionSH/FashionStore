@@ -7,35 +7,32 @@ const token = Astro.cookies.get('sb-access-token')?.value;
 if (!token) {
   return Astro.redirect('/auth/login');
 }
-
-// Por ahora, dejamos la carga de datos en el cliente
 ---
 
-<Layout title="Clientes - CRM Ventas">
-  <div class="clientes-container">
+<Layout title="Clientes - Victoria CRM">
+  <div class="page-container">
     <header class="page-header">
       <div class="header-content">
-        <h1>Gestión de Clientes</h1>
-        <p>Administra y consulta tu base de clientes</p>
+        <h1>Clientes</h1>
+        <p class="subtitle">Gestiona y consulta tu base de clientes</p>
       </div>
       <a href="/customers/crear" class="btn-primary">
-        + Nuevo Cliente
+        Nuevo Cliente
       </a>
     </header>
 
-    <!-- Filtros y búsqueda -->
-    <div class="filters-section">
+    <div class="filters-card">
       <div class="search-box">
         <input
           type="text"
           id="searchInput"
           placeholder="Buscar por nombre, email o empresa..."
-          class="search-input"
+          class="form-input"
         />
       </div>
       
       <div class="filter-controls">
-        <select id="estadoFilter" class="filter-select">
+        <select id="estadoFilter" class="form-select">
           <option value="">Todos los estados</option>
           <option value="activo">Activo</option>
           <option value="prospecto">Prospecto</option>
@@ -43,7 +40,7 @@ if (!token) {
           <option value="inactivo">Inactivo</option>
         </select>
 
-        <select id="ordenFilter" class="filter-select">
+        <select id="ordenFilter" class="form-select">
           <option value="fecha_creacion-desc">Más recientes</option>
           <option value="fecha_creacion-asc">Más antiguos</option>
           <option value="nombre-asc">Nombre A-Z</option>
@@ -52,26 +49,24 @@ if (!token) {
       </div>
     </div>
 
-    <!-- Lista de clientes -->
     <div id="clientesContainer">
-      <div class="loading">
-        <div class="spinner-large"></div>
+      <div class="loading-state">
+        <div class="spinner"></div>
         <p>Cargando clientes...</p>
       </div>
     </div>
 
-    <!-- Paginación -->
     <div id="paginationContainer" style="display: none;" class="pagination">
-      <button id="prevBtn" class="pagination-btn" disabled>← Anterior</button>
+      <button id="prevBtn" class="btn-secondary" disabled>Anterior</button>
       <span id="pageInfo" class="page-info">Página 1</span>
-      <button id="nextBtn" class="pagination-btn">Siguiente →</button>
+      <button id="nextBtn" class="btn-secondary">Siguiente</button>
     </div>
   </div>
 </Layout>
 
 <style>
-  .clientes-container {
-    max-width: 1200px;
+  .page-container {
+    max-width: 1400px;
     margin: 0 auto;
     padding: 2rem;
   }
@@ -81,45 +76,30 @@ if (!token) {
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 2px solid #e5e7eb;
   }
 
   .header-content h1 {
     font-size: 2rem;
     font-weight: 700;
-    color: #1f2937;
     margin-bottom: 0.5rem;
   }
 
-  .header-content p {
-    color: #6b7280;
+  .subtitle {
+    color: var(--color-text-light);
     font-size: 1rem;
   }
 
-  .btn-primary {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    background: #3b82f6;
-    color: white;
-    border-radius: 8px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: all 0.2s;
-  }
-
-  .btn-primary:hover {
-    background: #2563eb;
-    transform: translateY(-1px);
-  }
-
-  .filters-section {
+  .filters-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
     display: flex;
     gap: 1rem;
-    margin-bottom: 2rem;
+    align-items: center;
     flex-wrap: wrap;
+    box-shadow: var(--shadow-sm);
   }
 
   .search-box {
@@ -127,52 +107,28 @@ if (!token) {
     min-width: 300px;
   }
 
-  .search-input {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: border-color 0.2s;
-  }
-
-  .search-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-  }
-
   .filter-controls {
     display: flex;
     gap: 0.75rem;
+    flex-wrap: wrap;
   }
 
-  .filter-select {
-    padding: 0.75rem 1rem;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    background: white;
-    cursor: pointer;
+  .filter-controls select {
+    min-width: 180px;
   }
 
-  .loading {
-    text-align: center;
-    padding: 4rem 2rem;
-    color: #6b7280;
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6rem 2rem;
+    color: var(--color-text-light);
   }
 
-  .spinner-large {
-    width: 3rem;
-    height: 3rem;
-    border: 4px solid #e5e7eb;
-    border-top-color: #3b82f6;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 1rem;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
+  .loading-state p {
+    margin-top: 1rem;
+    font-size: 0.9375rem;
   }
 
   .clientes-grid {
@@ -181,84 +137,95 @@ if (!token) {
   }
 
   .cliente-card {
-    background: white;
-    border: 2px solid #e5e7eb;
-    border-radius: 12px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
     padding: 1.5rem;
-    transition: all 0.2s;
+    transition: var(--transition);
     cursor: pointer;
   }
 
   .cliente-card:hover {
-    border-color: #3b82f6;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
   }
 
   .cliente-header {
     display: flex;
     justify-content: space-between;
-    align-items: start;
+    align-items: flex-start;
     margin-bottom: 1rem;
   }
 
-  .cliente-nombre {
-    font-size: 1.25rem;
+  .cliente-info h3 {
+    font-size: 1.125rem;
     font-weight: 600;
-    color: #1f2937;
     margin-bottom: 0.25rem;
   }
 
   .cliente-empresa {
-    color: #6b7280;
+    color: var(--color-text-light);
+    font-size: 0.9375rem;
+  }
+
+  .cliente-contacto {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    color: var(--color-text-light);
     font-size: 0.875rem;
   }
 
-  .estado-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
+  .cliente-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
   }
 
-  .estado-activo {
-    background: #d1fae5;
-    color: #065f46;
+  .cliente-fecha {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
   }
 
-  .estado-prospecto {
-    background: #dbeafe;
-    color: #1e40af;
+  .cliente-actions {
+    display: flex;
+    gap: 0.5rem;
   }
 
-  .estado-lead {
-    background: #fef3c7;
-    color: #92400e;
-  }
-
-  .estado-inactivo {
-    background: #f3f4f6;
-    color: #4b5563;
-  }
-
-  .cliente-info {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 0.75rem;
-    color: #6b7280;
+  .btn-icon {
+    padding: 0.5rem;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: var(--transition);
     font-size: 0.875rem;
+    color: var(--color-text-light);
+  }
+
+  .btn-icon:hover {
+    background: var(--color-bg-alt);
+    border-color: var(--color-border-dark);
   }
 
   .empty-state {
     text-align: center;
-    padding: 4rem 2rem;
-    color: #6b7280;
+    padding: 6rem 2rem;
   }
 
-  .empty-state h2 {
-    font-size: 1.5rem;
+  .empty-state h3 {
+    font-size: 1.25rem;
     margin-bottom: 0.5rem;
-    color: #374151;
+    color: var(--color-text);
+  }
+
+  .empty-state p {
+    color: var(--color-text-light);
+    margin-bottom: 1.5rem;
   }
 
   .pagination {
@@ -267,35 +234,32 @@ if (!token) {
     align-items: center;
     gap: 1rem;
     margin-top: 2rem;
-  }
-
-  .pagination-btn {
-    padding: 0.5rem 1rem;
-    background: white;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: all 0.2s;
-  }
-
-  .pagination-btn:hover:not(:disabled) {
-    border-color: #3b82f6;
-    color: #3b82f6;
-  }
-
-  .pagination-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-border);
   }
 
   .page-info {
-    color: #6b7280;
+    padding: 0.5rem 1rem;
     font-weight: 500;
+    color: var(--color-text-light);
+  }
+
+  .error-state {
+    background: var(--color-bg);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    text-align: center;
+    margin: 2rem 0;
+  }
+
+  .error-state h3 {
+    color: var(--color-danger);
+    margin-bottom: 0.5rem;
   }
 
   @media (max-width: 768px) {
-    .clientes-container {
+    .page-container {
       padding: 1rem;
     }
 
@@ -304,46 +268,45 @@ if (!token) {
       gap: 1rem;
     }
 
-    .btn-primary {
-      width: 100%;
-      justify-content: center;
+    .filters-card {
+      flex-direction: column;
+      align-items: stretch;
     }
 
-    .filters-section {
-      flex-direction: column;
+    .search-box {
+      min-width: 100%;
     }
 
     .filter-controls {
       flex-direction: column;
+    }
+
+    .filter-controls select {
+      min-width: 100%;
     }
   }
 </style>
 
 <script>
   let currentPage = 1;
-  const limit = 10;
+  const limit = 50;
   let searchTerm = '';
   let estadoFilter = '';
-  let ordenFilter = 'fecha_creacion-desc';
 
   async function cargarClientes() {
     const container = document.getElementById('clientesContainer');
     if (!container) return;
 
-    container.innerHTML = '<div class="loading"><div class="spinner-large"></div><p>Cargando clientes...</p></div>';
+    container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Cargando clientes...</p></div>';
 
     try {
       const params = new URLSearchParams({
         limite: limit.toString(),
-        offset: ((currentPage - 1) * limit).toString(),
+        page: currentPage.toString(),
       });
 
       if (searchTerm) params.append('busqueda', searchTerm);
       if (estadoFilter) params.append('estado', estadoFilter);
-      
-      const [ordenarPor, orden] = ordenFilter.split('-');
-      params.append('ordenar_por', ordenarPor);
-      params.append('orden', orden);
 
       const response = await fetch(`/api/customers?${params}`);
       
@@ -356,29 +319,46 @@ if (!token) {
       if (!result.data || result.data.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
-            <h2>No hay clientes</h2>
+            <h3>No hay clientes</h3>
             <p>${searchTerm || estadoFilter ? 'No se encontraron clientes con los filtros aplicados' : 'Comienza creando tu primer cliente'}</p>
+            <a href="/customers/crear" class="btn-primary">Crear Cliente</a>
           </div>
         `;
         document.getElementById('paginationContainer')!.style.display = 'none';
         return;
       }
 
-      const clientesHTML = result.data.map((cliente: any) => `
-        <div class="cliente-card" onclick="window.location.href='/customers/${cliente.id}'">
-          <div class="cliente-header">
-            <div>
-              <div class="cliente-nombre">${cliente.nombre}</div>
-              ${cliente.empresa ? `<div class="cliente-empresa">${cliente.empresa}</div>` : ''}
+      const clientesHTML = result.data.map((cliente: any) => {
+        const estadoClass = cliente.status === 'active' ? 'success' :
+                           cliente.status === 'inactive' ? 'danger' :
+                           cliente.status === 'qualified' ? 'info' : 'warning';
+        
+        const estadoTexto = cliente.status === 'active' ? 'Activo' :
+                           cliente.status === 'inactive' ? 'Inactivo' :
+                           cliente.status === 'qualified' ? 'Prospecto' : 'Lead';
+
+        return `
+          <div class="cliente-card" onclick="window.location.href='/customers/${cliente.id}'">
+            <div class="cliente-header">
+              <div class="cliente-info">
+                <h3>${cliente.first_name} ${cliente.last_name || ''}</h3>
+                ${cliente.company_name ? `<div class="cliente-empresa">${cliente.company_name}</div>` : ''}
+              </div>
+              <span class="badge badge-${estadoClass}">${estadoTexto}</span>
             </div>
-            <span class="estado-badge estado-${cliente.estado}">${cliente.estado}</span>
+            <div class="cliente-contacto">
+              ${cliente.email ? `<div>${cliente.email}</div>` : ''}
+              ${cliente.phone ? `<div>${cliente.phone}</div>` : ''}
+            </div>
+            <div class="cliente-footer">
+              <span class="cliente-fecha">Creado: ${new Date(cliente.created_at).toLocaleDateString()}</span>
+              <div class="cliente-actions">
+                <button class="btn-icon" onclick="event.stopPropagation(); window.location.href='/customers/${cliente.id}'">Ver</button>
+              </div>
+            </div>
           </div>
-          <div class="cliente-info">
-            <div>📧 ${cliente.correo_electronico}</div>
-            ${cliente.telefono ? `<div>📱 ${cliente.telefono}</div>` : ''}
-          </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
 
       container.innerHTML = `<div class="clientes-grid">${clientesHTML}</div>`;
 
@@ -389,16 +369,17 @@ if (!token) {
         const prevBtn = document.getElementById('prevBtn') as HTMLButtonElement;
         const nextBtn = document.getElementById('nextBtn') as HTMLButtonElement;
         const pageInfo = document.getElementById('pageInfo');
+        
         if (prevBtn) prevBtn.disabled = currentPage === 1;
         if (nextBtn) nextBtn.disabled = !result.tiene_mas;
-        if (pageInfo) pageInfo.textContent = `Página ${currentPage} - ${result.total} clientes`;
+        if (pageInfo) pageInfo.textContent = `Página ${currentPage} de ${Math.ceil(result.total / limit)}`;
       }
 
     } catch (error) {
       console.error('Error:', error);
       container.innerHTML = `
-        <div class="empty-state">
-          <h2>Error al cargar clientes</h2>
+        <div class="error-state">
+          <h3>Error al cargar clientes</h3>
           <p>Por favor, intenta de nuevo más tarde</p>
         </div>
       `;
@@ -427,13 +408,6 @@ if (!token) {
       cargarClientes();
     });
 
-    // Filtro de orden
-    document.getElementById('ordenFilter')?.addEventListener('change', (e) => {
-      ordenFilter = (e.target as HTMLSelectElement).value;
-      currentPage = 1;
-      cargarClientes();
-    });
-
     // Paginación
     document.getElementById('prevBtn')?.addEventListener('click', () => {
       if (currentPage > 1) {
@@ -447,4 +421,3 @@ if (!token) {
       cargarClientes();
     });
   });
-</script>

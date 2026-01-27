@@ -1,0 +1,314 @@
+---
+import { createClient } from '@supabase/supabase-js';
+import '../styles/tailwind.css';
+import FlashOfferUI from '../components/islands/FlashOfferUI.tsx';
+
+export const prerender = false;
+
+interface Props {
+	title?: string;
+	showAuth?: boolean;
+}
+
+const { title = 'Fashion Store', showAuth = true } = Astro.props;
+
+let loggedIn = false;
+let userEmail: string | null = null;
+
+if (showAuth) {
+	const accessToken = Astro.cookies.get('sb-access-token')?.value;
+	if (accessToken) {
+		const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+		const anonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+		if (supabaseUrl && anonKey) {
+			const authSb = createClient(supabaseUrl, anonKey, {
+				auth: { persistSession: false, autoRefreshToken: false },
+				global: { headers: { Authorization: `Bearer ${accessToken}` } },
+			});
+			const { data } = await authSb.auth.getUser();
+			if (data.user) {
+				loggedIn = true;
+				userEmail = data.user.email ?? null;
+			}
+		}
+	}
+}
+---
+
+<!doctype html>
+<html lang="es">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>{title}</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+		<style is:global>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+				background: #fff;
+				color: #111;
+				line-height: 1.6;
+				-webkit-font-smoothing: antialiased;
+			}
+
+			a {
+				color: inherit;
+				text-decoration: none;
+			}
+
+			button {
+				font-family: inherit;
+			}
+
+			/* Typography */
+			.text-xs { font-size: 0.75rem; }
+			.text-sm { font-size: 0.875rem; }
+			.text-base { font-size: 1rem; }
+			.text-lg { font-size: 1.125rem; }
+			.text-xl { font-size: 1.25rem; }
+			.text-2xl { font-size: 1.5rem; }
+			.text-3xl { font-size: 1.875rem; }
+			.text-4xl { font-size: 2.25rem; }
+
+			.font-light { font-weight: 300; }
+			.font-normal { font-weight: 400; }
+			.font-medium { font-weight: 500; }
+			.font-semibold { font-weight: 600; }
+
+			.uppercase { text-transform: uppercase; }
+			.tracking-wide { letter-spacing: 0.05em; }
+			.tracking-wider { letter-spacing: 0.1em; }
+
+			.text-gray-400 { color: #9ca3af; }
+			.text-gray-500 { color: #6b7280; }
+			.text-gray-600 { color: #4b5563; }
+			.text-gray-900 { color: #111827; }
+
+			/* Buttons */
+			.btn-primary {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				padding: 0.875rem 2rem;
+				background: #111;
+				color: #fff;
+				font-size: 0.8125rem;
+				font-weight: 500;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				border: 1px solid #111;
+				cursor: pointer;
+				transition: all 0.2s ease;
+			}
+
+			.btn-primary:hover {
+				background: #333;
+				border-color: #333;
+			}
+
+			.btn-primary:disabled {
+				background: #d1d5db;
+				border-color: #d1d5db;
+				cursor: not-allowed;
+			}
+
+			.btn-secondary {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				padding: 0.875rem 2rem;
+				background: #fff;
+				color: #111;
+				font-size: 0.8125rem;
+				font-weight: 500;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				border: 1px solid #111;
+				cursor: pointer;
+				transition: all 0.2s ease;
+			}
+
+			.btn-secondary:hover {
+				background: #f9fafb;
+			}
+
+			.btn-secondary:disabled {
+				color: #9ca3af;
+				border-color: #d1d5db;
+				cursor: not-allowed;
+			}
+
+			.btn-link {
+				display: inline-flex;
+				align-items: center;
+				background: none;
+				border: none;
+				color: #111;
+				font-size: 0.8125rem;
+				font-weight: 400;
+				cursor: pointer;
+				transition: color 0.2s ease;
+			}
+
+			.btn-link:hover {
+				color: #6b7280;
+			}
+
+			/* Forms */
+			.form-input {
+				width: 100%;
+				padding: 0.875rem 1rem;
+				font-size: 0.875rem;
+				border: 1px solid #e5e7eb;
+				background: #fff;
+				transition: border-color 0.2s ease;
+			}
+
+			.form-input:focus {
+				outline: none;
+				border-color: #111;
+			}
+
+			.form-label {
+				display: block;
+				font-size: 0.75rem;
+				font-weight: 500;
+				letter-spacing: 0.05em;
+				text-transform: uppercase;
+				color: #6b7280;
+				margin-bottom: 0.5rem;
+			}
+
+			/* Alerts */
+			.alert {
+				padding: 1rem;
+				font-size: 0.875rem;
+				border: 1px solid;
+			}
+
+			.alert-error {
+				background: #fef2f2;
+				border-color: #fecaca;
+				color: #991b1b;
+			}
+
+			.alert-success {
+				background: #f0fdf4;
+				border-color: #bbf7d0;
+				color: #166534;
+			}
+
+			/* Container */
+			.container {
+				width: 100%;
+				max-width: 1200px;
+				margin: 0 auto;
+				padding: 0 1.5rem;
+			}
+
+			.container-sm {
+				max-width: 480px;
+			}
+
+			.container-md {
+				max-width: 768px;
+			}
+		</style>
+	</head>
+	<body>
+		<FlashOfferUI client:only="preact" />
+		<!-- Header -->
+		<header style="border-bottom: 1px solid #e5e7eb;">
+			<div class="container" style="display: flex; align-items: center; justify-content: space-between; height: 60px;">
+				<!-- Logo -->
+				<a href="/" style="font-size: 0.9375rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase;">
+					Fashion Store
+				</a>
+
+				<!-- Nav -->
+				<nav style="display: flex; align-items: center; gap: 2rem;">
+					<a href="/productos" style="font-size: 0.8125rem; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.2s;" onmouseover="this.style.color='#6b7280'" onmouseout="this.style.color='#111'">
+						Productos
+					</a>
+					<a
+						id="nav-ofertas"
+						href="/productos?flash=1"
+						style="display:none;font-size: 0.8125rem; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.2s;"
+						onmouseover="this.style.color='#6b7280'"
+						onmouseout="this.style.color='#111'"
+					>
+						OFERTAS
+					</a>
+					<a href="/carrito" style="font-size: 0.8125rem; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.2s;" onmouseover="this.style.color='#6b7280'" onmouseout="this.style.color='#111'">
+						Carrito
+					</a>
+					{loggedIn && (
+						<a href="/cuenta" style="font-size: 0.8125rem; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.2s;" onmouseover="this.style.color='#6b7280'" onmouseout="this.style.color='#111'">
+							Cuenta
+						</a>
+					)}
+				</nav>
+
+				<!-- Auth -->
+				<div style="display: flex; align-items: center; gap: 1.5rem;">
+					{loggedIn ? (
+						<>
+							{userEmail && (
+								<span style="font-size: 0.75rem; color: #6b7280;">{userEmail}</span>
+							)}
+							<form method="POST" action="/auth/logout" style="margin: 0;">
+								<button type="submit" class="btn-link">Salir</button>
+							</form>
+						</>
+					) : (
+						<>
+							<a href="/auth/login" style="font-size: 0.8125rem; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.2s;" onmouseover="this.style.color='#6b7280'" onmouseout="this.style.color='#111'">
+								Login
+							</a>
+							<a href="/auth/register" style="font-size: 0.8125rem; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.2s;" onmouseover="this.style.color='#6b7280'" onmouseout="this.style.color='#111'">
+								Registro
+							</a>
+						</>
+					)}
+				</div>
+			</div>
+		</header>
+
+		<!-- Main -->
+		<main>
+			<slot />
+		</main>
+
+		<script>
+			(() => {
+				const el = document.getElementById('nav-ofertas');
+				if (!(el instanceof HTMLAnchorElement)) return;
+				fetch('/api/flash-offer', { method: 'GET' })
+					.then((r) => r.json())
+					.then((data) => {
+						if (data && data.active) {
+							el.style.display = '';
+						}
+					})
+					.catch(() => {});
+			})();
+		</script>
+
+		<!-- Footer -->
+		<footer style="border-top: 1px solid #e5e7eb; margin-top: 4rem; padding: 2rem 0;">
+			<div class="container" style="text-align: center;">
+				<p style="font-size: 0.75rem; color: #9ca3af; letter-spacing: 0.05em; text-transform: uppercase;">
+					Fashion Store
+				</p>
+			</div>
+		</footer>
+	</body>
+</html>

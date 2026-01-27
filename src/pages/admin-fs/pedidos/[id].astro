@@ -1,0 +1,213 @@
+---
+import AdminFSLayout from '../../../layouts/AdminFSLayout.astro';
+import { getSupabaseAdmin } from '../../../lib/database/supabaseServer';
+import { formatPriceEURFromCents } from '../../../lib/price';
+
+export const prerender = false;
+
+const sb = getSupabaseAdmin() as any;
+
+const id = Astro.params.id;
+
+const ok = Astro.url.searchParams.get('ok') === '1';
+
+let error: string | null = null;
+let selectedStatus: string | null = null;
+
+const allowedStatuses = ['pending', 'test', 'paid', 'shipped', 'cancelled'] as const;
+type AllowedStatus = (typeof allowedStatuses)[number];
+
+if (Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	const action = String(form.get('action') ?? '');
+	const status = String(form.get('status') ?? '');
+	selectedStatus = status;
+
+	if (action === 'update_status') {
+		if (!id) {
+			error = 'Pedido inválido';
+		} else if (!allowedStatuses.includes(status as AllowedStatus)) {
+			error = 'Status inválido';
+		} else {
+			const { error: updateError } = await sb
+				.from('fs_orders')
+				.update({ status })
+				.eq('id', id);
+
+			if (updateError) {
+				error = updateError.message || 'No se pudo actualizar el status';
+			} else {
+				return Astro.redirect(`/admin-fs/pedidos/${encodeURIComponent(id)}?ok=1`);
+			}
+		}
+	}
+}
+
+type OrderRow = {
+	id: string;
+	created_at: string;
+	email: string | null;
+	user_id: string | null;
+	subtotal_cents: number;
+	discount_cents: number;
+	total_cents: number;
+	status: string;
+};
+
+type OrderItemRow = {
+	id: string;
+	product_id: string;
+	qty: number;
+	price_cents: number;
+	line_total_cents: number;
+	size?: string | null;
+	fs_products?: { name: string | null } | null;
+};
+
+let order: OrderRow | null = null;
+let items: OrderItemRow[] = [];
+
+if (!id) {
+	error = 'Pedido inválido';
+} else {
+	const { data: orderData, error: orderError } = await sb
+		.from('fs_orders')
+		.select('id,created_at,email,user_id,subtotal_cents,discount_cents,total_cents,status')
+		.eq('id', id)
+		.maybeSingle();
+
+	if (orderError) {
+		error = orderError.message || 'Error cargando pedido';
+	} else {
+		order = orderData ?? null;
+	}
+
+	if (order) {
+		const { data: itemsData, error: itemsError } = await sb
+			.from('fs_order_items')
+			.select('id,product_id,qty,price_cents,line_total_cents,size,fs_products(name)')
+			.eq('order_id', order.id)
+			.order('created_at', { ascending: true });
+
+		if (itemsError) {
+			error = itemsError.message || 'Error cargando items del pedido';
+		} else {
+			items = itemsData ?? [];
+		}
+	}
+}
+
+const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
+---
+
+<AdminFSLayout title="Admin FashionStore - Pedido">
+	<section style="padding: 3rem 0 4rem;">
+		<div class="container">
+			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
+				<div>
+					<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.75rem;">
+						Detalle
+					</p>
+					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
+						Pedido
+					</h1>
+					<p class="helper-text" style="margin-top: 0.75rem; max-width: 900px; word-break: break-word;">
+						{order?.id}
+					</p>
+				</div>
+				<a class="btn-secondary" href="/admin-fs/pedidos">Volver</a>
+			</div>
+
+			{error && <div class="alert alert-error" style="margin-top: 1.5rem;">{error}</div>}
+			{ok && !error && <div class="alert alert-success" style="margin-top: 1.5rem;">Status actualizado</div>}
+
+			{order && (
+				<div style="margin-top: 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+					<div style="border: 1px solid #e5e7eb; padding: 1.5rem;">
+						<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Resumen</div>
+						<div style="margin-top: 0.75rem; display: grid; gap: 0.5rem;">
+							<div><span class="helper-text">Fecha</span><div style="font-weight: 500;">{new Date(order.created_at).toLocaleString()}</div></div>
+							<div><span class="helper-text">Email</span><div style="font-weight: 500;">{order.email ?? '-'}</div></div>
+							<div><span class="helper-text">User ID</span><div style="font-weight: 500; word-break: break-word;">{order.user_id ?? '-'}</div></div>
+							<div><span class="helper-text">Status</span><div style="font-weight: 500;">{order.status}</div></div>
+						</div>
+					</div>
+
+					<div style="border: 1px solid #e5e7eb; padding: 1.5rem;">
+						<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Totales</div>
+						<div style="margin-top: 0.75rem; display: grid; gap: 0.5rem;">
+							<div style="display: flex; justify-content: space-between; gap: 1rem;"><span class="helper-text">Subtotal</span><span style="font-weight: 500;">{formatPrice(order.subtotal_cents)}</span></div>
+							<div style="display: flex; justify-content: space-between; gap: 1rem;"><span class="helper-text">Discount</span><span style="font-weight: 500;">{formatPrice(order.discount_cents)}</span></div>
+							<div style="display: flex; justify-content: space-between; gap: 1rem;"><span class="helper-text">Total</span><span style="font-weight: 600;">{formatPrice(order.total_cents)}</span></div>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{order && (
+				<div style="margin-top: 1rem; border: 1px solid #e5e7eb; padding: 1.5rem;">
+					<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+						<div>
+							<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Acciones</div>
+							<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">Cambiar status</div>
+						</div>
+						<form method="POST" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: end; margin: 0;">
+							<input type="hidden" name="action" value="update_status" />
+							<div style="min-width: 220px;">
+								<label for="status" class="form-label">Status</label>
+								<select id="status" name="status" class="form-input">
+									{allowedStatuses.map((s) => (
+										<option value={s} selected={(selectedStatus ?? order.status) === s}>
+											{s}
+										</option>
+									))}
+								</select>
+							</div>
+							<button class="btn-primary" type="submit" style="padding: 0.875rem 2rem;">Actualizar</button>
+						</form>
+					</div>
+				</div>
+			)}
+
+			{order && (
+				<div style="margin-top: 2rem;">
+					<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+						<div>
+							<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.5rem;">Items</p>
+							<h2 style="font-size: 1.25rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">Items</h2>
+						</div>
+					</div>
+
+					<div style="margin-top: 1rem; border: 1px solid #e5e7eb; overflow-x: auto;">
+						<table>
+							<thead>
+								<tr>
+									<th>Producto</th>
+									<th>Talla</th>
+									<th>Product ID</th>
+									<th style="text-align: right;">Qty</th>
+									<th style="text-align: right;">Precio</th>
+									<th style="text-align: right;">Total</th>
+								</tr>
+							</thead>
+							<tbody>
+								{items.map((it) => (
+									<tr>
+										<td style="font-weight: 500;">{it.fs_products?.name ?? '-'}</td>
+										<td style="color: #6b7280;">{it.size ?? '-'}</td>
+										<td style="color: #6b7280;">{it.product_id}</td>
+										<td style="text-align: right;">{it.qty}</td>
+										<td style="text-align: right;">{formatPrice(it.price_cents)}</td>
+										<td style="text-align: right; font-weight: 500;">{formatPrice(it.line_total_cents)}</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+
+					{items.length === 0 && <p class="helper-text" style="margin-top: 1rem;">Este pedido no tiene items</p>}
+				</div>
+			)}
+		</div>
+	</section>
+</AdminFSLayout>

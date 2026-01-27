@@ -1,7 +1,9 @@
 import type { APIRoute } from 'astro';
-import { supabase } from '../../../lib/database/supabase';
+import { getContactById, deleteContact, updateContact } from '../../../lib/services/contactService';
 
-export const GET: APIRoute = async ({ params, cookies }) => {
+export const prerender = false;
+
+export const GET: APIRoute = async ({ params }) => {
   try {
     const { id } = params;
 
@@ -12,54 +14,22 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       );
     }
 
-    // Verificar autenticación
-    const token = cookies.get('sb-access-token')?.value;
-    
-    if (!token) {
-      return new Response(
-        JSON.stringify({ error: 'No autorizado' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    // Obtener contacto
+    const result = await getContactById(id);
 
-    // Obtener datos del usuario autenticado
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Token inválido o expirado' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Obtener cliente
-    const { data: cliente, error } = await supabase
-      .from('clientes')
-      .select('*')
-      .eq('id', id)
-      .eq('usuario_id', user.id) // Asegurar que el cliente pertenece al usuario
-      .single();
-
-    if (error) {
-      console.error('Error al obtener cliente:', error);
+    if (!result.success) {
+      console.error('Error al obtener cliente:', result.error);
       
-      if (error.code === 'PGRST116') {
-        return new Response(
-          JSON.stringify({ error: 'Cliente no encontrado' }),
-          { status: 404, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
       return new Response(
         JSON.stringify({ 
-          error: 'Error al obtener cliente',
-          details: error.message 
+          error: 'Cliente no encontrado',
+          details: result.error 
         }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!cliente) {
+    if (!result.data) {
       return new Response(
         JSON.stringify({ error: 'Cliente no encontrado' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -70,7 +40,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
     return new Response(
       JSON.stringify({
         success: true,
-        data: cliente
+        data: result.data
       }),
       { 
         status: 200, 
@@ -90,7 +60,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
   }
 };
 
-export const DELETE: APIRoute = async ({ params, cookies }) => {
+export const DELETE: APIRoute = async ({ params }) => {
   try {
     const { id } = params;
 
@@ -101,54 +71,15 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
       );
     }
 
-    // Verificar autenticación
-    const token = cookies.get('sb-access-token')?.value;
-    
-    if (!token) {
-      return new Response(
-        JSON.stringify({ error: 'No autorizado' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    // Eliminar el contacto
+    const result = await deleteContact(id);
 
-    // Obtener datos del usuario autenticado
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Token inválido o expirado' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verificar que el cliente pertenece al usuario
-    const { data: cliente, error: checkError } = await supabase
-      .from('clientes')
-      .select('id')
-      .eq('id', id)
-      .eq('usuario_id', user.id)
-      .single();
-
-    if (checkError || !cliente) {
-      return new Response(
-        JSON.stringify({ error: 'Cliente no encontrado o no tienes permiso para eliminarlo' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Eliminar el cliente
-    const { error: deleteError } = await supabase
-      .from('clientes')
-      .delete()
-      .eq('id', id)
-      .eq('usuario_id', user.id);
-
-    if (deleteError) {
-      console.error('Error al eliminar cliente:', deleteError);
+    if (!result.success) {
+      console.error('Error al eliminar cliente:', result.error);
       return new Response(
         JSON.stringify({ 
           error: 'Error al eliminar el cliente',
-          details: deleteError.message 
+          details: result.error 
         }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );

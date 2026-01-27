@@ -1,0 +1,182 @@
+---
+import AdminFSLayout from '../../layouts/AdminFSLayout.astro';
+import { getSupabaseAdmin } from '../../lib/database/supabaseServer';
+
+export const prerender = false;
+
+const sb = getSupabaseAdmin() as any;
+
+let error: string | null = null;
+
+if (Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	const action = String(form.get('action') ?? '');
+
+	if (action === 'save') {
+		const id = String(form.get('id') ?? '').trim();
+		const isEnabled = form.get('is_enabled') === 'on';
+		const discountPercent = Math.max(0, Math.min(90, Math.trunc(Number(form.get('discount_percent') ?? 0) || 0)));
+		const startsAtRaw = String(form.get('starts_at') ?? '').trim();
+		const endsAtRaw = String(form.get('ends_at') ?? '').trim();
+		const showPopup = form.get('show_popup') === 'on';
+		const popupTitle = String(form.get('popup_title') ?? '').trim();
+		const popupText = String(form.get('popup_text') ?? '').trim();
+
+		const startsAt = startsAtRaw ? new Date(startsAtRaw).toISOString() : null;
+		const endsAt = endsAtRaw ? new Date(endsAtRaw).toISOString() : null;
+
+		if (startsAt && endsAt && new Date(startsAt) > new Date(endsAt)) {
+			error = 'starts_at no puede ser mayor que ends_at';
+		} else {
+			if (isEnabled) {
+				const { error: disableError } = await sb
+					.from('fs_flash_offers')
+					.update({ is_enabled: false })
+					.neq('id', id || '00000000-0000-0000-0000-000000000000');
+				if (disableError) {
+					error = disableError.message || 'No se pudo desactivar otras ofertas';
+				}
+			}
+
+			if (!error) {
+				const payload = {
+					id: id || undefined,
+					is_enabled: isEnabled,
+					discount_percent: discountPercent,
+					starts_at: startsAt,
+					ends_at: endsAt,
+					show_popup: showPopup,
+					popup_title: popupTitle || null,
+					popup_text: popupText || null,
+				};
+
+				const { error: upsertError } = await sb
+					.from('fs_flash_offers')
+					.upsert(payload, { onConflict: 'id' });
+
+				if (upsertError) {
+					error = upsertError.message || 'No se pudo guardar la oferta';
+				} else {
+					return Astro.redirect('/admin-fs/flash');
+				}
+			}
+		}
+	}
+}
+
+const { data: settingsData } = await sb
+	.from('fs_settings')
+	.select('flash_offers_enabled')
+	.eq('singleton', true)
+	.maybeSingle();
+
+const flashEnabled = !!settingsData?.flash_offers_enabled;
+
+const { data: offersData, error: offersError } = await sb
+	.from('fs_flash_offers')
+	.select('id,is_enabled,discount_percent,starts_at,ends_at,show_popup,popup_title,popup_text,updated_at')
+	.order('updated_at', { ascending: false })
+	.limit(20);
+
+if (offersError) {
+	error = offersError.message || 'No se pudieron cargar las ofertas';
+}
+
+const offers = offersData ?? [];
+const current = offers.length > 0 ? offers[0] : null;
+---
+
+<AdminFSLayout title="Admin FashionStore - Flash">
+	<section style="padding: 3rem 0 4rem;">
+		<div class="container">
+			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
+				<div>
+					<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.75rem;">
+						Flash
+					</p>
+					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
+						Flash Offers
+					</h1>
+					<p class="helper-text" style="margin-top: 0.75rem; max-width: 720px;">
+						Configura la oferta activa (descuento, fechas y popup). Para que aplique en la tienda, el switch global debe estar en ON.
+					</p>
+				</div>
+				<a class="btn-secondary" href="/admin-fs">Volver</a>
+			</div>
+
+			{!flashEnabled && (
+				<div class="alert alert-error" style="margin-top: 1.5rem;">
+					El switch global de Ofertas Flash está en OFF. Actívalo en <a href="/admin-fs/ofertas" style="text-decoration: underline;">/admin-fs/ofertas</a>.
+				</div>
+			)}
+
+			{error && <div class="alert alert-error" style="margin-top: 1.5rem;">{error}</div>}
+
+			<form method="POST" style="margin-top: 2rem; display: grid; gap: 1rem;">
+				<input type="hidden" name="action" value="save" />
+				<input type="hidden" name="id" value={current?.id ?? ''} />
+
+				<div style="border: 1px solid #e5e7eb; padding: 1.5rem; display: grid; gap: 1rem;">
+					<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+						<label style="display: grid; gap: 0.5rem;">
+							<span class="form-label">Descuento (%)</span>
+							<input class="form-input" type="number" name="discount_percent" min="0" max="90" value={String(current?.discount_percent ?? 0)} />
+						</label>
+						<label style="display: grid; gap: 0.5rem;">
+							<span class="form-label">Starts at (ISO o input date)</span>
+							<input class="form-input" type="datetime-local" name="starts_at" value={current?.starts_at ? String(current.starts_at).slice(0, 16) : ''} />
+						</label>
+						<label style="display: grid; gap: 0.5rem;">
+							<span class="form-label">Ends at</span>
+							<input class="form-input" type="datetime-local" name="ends_at" value={current?.ends_at ? String(current.ends_at).slice(0, 16) : ''} />
+						</label>
+					</div>
+
+					<div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+						<label style="display: inline-flex; align-items: center; gap: 0.75rem;">
+							<input type="checkbox" name="is_enabled" checked={!!current?.is_enabled} />
+							<span class="helper-text">Oferta activa</span>
+						</label>
+						<label style="display: inline-flex; align-items: center; gap: 0.75rem;">
+							<input type="checkbox" name="show_popup" checked={!!current?.show_popup} />
+							<span class="helper-text">Mostrar popup</span>
+						</label>
+					</div>
+
+					<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+						<label style="display: grid; gap: 0.5rem;">
+							<span class="form-label">Popup title</span>
+							<input class="form-input" type="text" name="popup_title" value={current?.popup_title ?? ''} />
+						</label>
+						<label style="display: grid; gap: 0.5rem;">
+							<span class="form-label">Popup text</span>
+							<textarea class="form-input" name="popup_text" rows={4}>{current?.popup_text ?? ''}</textarea>
+						</label>
+					</div>
+				</div>
+
+				<button class="btn-primary" type="submit" style="width: fit-content;">Guardar</button>
+			</form>
+
+			<div style="margin-top: 2.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;">
+				<h2 style="font-size: 0.8125rem; letter-spacing: 0.15em; text-transform: uppercase; margin: 0 0 1rem;">Historial</h2>
+				<div style="display: grid; gap: 0.75rem;">
+					{offers.map((o: any) => (
+						<div style="border: 1px solid #e5e7eb; padding: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+							<div>
+								<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">{o.is_enabled ? 'ACTIVA' : 'INACTIVA'}</div>
+								<div style="margin-top: 0.5rem; font-size: 0.9375rem; font-weight: 500;">
+									-{o.discount_percent}%
+								</div>
+								<div class="helper-text" style="margin-top: 0.25rem;">
+									{o.starts_at ? String(o.starts_at) : 'Sin fecha inicio'} · {o.ends_at ? String(o.ends_at) : 'Sin fecha fin'}
+								</div>
+							</div>
+							<div class="helper-text">{o.id}</div>
+						</div>
+					))}
+				</div>
+			</div>
+		</div>
+	</section>
+</AdminFSLayout>

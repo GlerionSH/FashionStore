@@ -1,0 +1,279 @@
+---
+import StoreLayout from '../../layouts/StoreLayout.astro';
+import { supabase } from '../../lib/supabase';
+import AddToCartButton from '../../components/islands/AddToCartButton.tsx';
+import CartPanel from '../../components/islands/CartPanel.tsx';
+import { applyPercentDiscountCents, getActiveFlashOffer } from '../../lib/flashOffer';
+import { formatPriceEURFromCents } from '../../lib/price';
+
+type CategoryRow = {
+	id: string;
+	name: string;
+	slug: string;
+};
+
+type ProductRow = {
+	id: string;
+	name: string;
+	slug: string;
+	price_cents: number;
+	stock: number;
+	category_id: string;
+	images: unknown;
+	is_active: boolean;
+	sizes?: string[];
+};
+
+const sb = supabase as any;
+
+const { data: categoriesData, error: categoriesError } = await sb
+	.from('fs_categories')
+	.select('id,name,slug');
+
+if (categoriesError) {
+	console.error('[productos] categoriesError:', categoriesError);
+}
+
+const { data: productsData, error: productsError } = await sb
+	.from('fs_products')
+	.select('id,name,slug,price_cents,stock,category_id,images,is_active,sizes')
+	.eq('is_active', true);
+
+if (productsError) {
+	console.error('[productos] productsError:', productsError);
+}
+
+const categories: CategoryRow[] = categoriesData ?? [];
+const products: ProductRow[] = productsData ?? [];
+
+const categoriesById = new Map<string, { name: string; slug: string }>();
+for (const category of categories) {
+	categoriesById.set(category.id, { name: category.name, slug: category.slug });
+}
+
+const selectedCategorySlugParam = Astro.url.searchParams.get('cat');
+const selectedCategorySlug = selectedCategorySlugParam ? decodeURIComponent(selectedCategorySlugParam) : null;
+const selectedCategory = selectedCategorySlug
+	? categories.find((c) => c.slug === selectedCategorySlug) ?? null
+	: null;
+
+const filteredProducts = selectedCategory
+	? products.filter((p) => p.category_id === selectedCategory.id)
+	: products;
+
+const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
+
+const activeOffer = await getActiveFlashOffer(sb);
+const discountPercent = activeOffer?.discount_percent ?? 0;
+---
+
+<StoreLayout title="Productos - Fashion Store">
+	<!-- Header -->
+	<section style="padding: 3rem 0 2rem; border-bottom: 1px solid #e5e7eb;">
+		<div class="container">
+			<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 1rem;">
+				Catalogo
+			</p>
+			<h1 style="font-size: 2.25rem; font-weight: 300; letter-spacing: -0.02em; margin: 0;">
+				Productos
+			</h1>
+			<p style="font-size: 0.875rem; color: #6b7280; margin-top: 1rem; max-width: 640px;">
+				Explora el catalogo completo. Filtra por categoria o ordena la lista.
+			</p>
+		</div>
+	</section>
+
+	<section style="padding: 2rem 0 4rem;">
+		<div class="container">
+			<!-- Filters + Sort -->
+			<div style="display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2rem;">
+				<div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+					<a
+						href="/productos"
+						style={
+							selectedCategory
+								? 'display:inline-flex;align-items:center;justify-content:center;padding:0.625rem 1rem;border:1px solid #e5e7eb;font-size:0.6875rem;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;color:#111;transition:background 0.2s,border-color 0.2s;'
+								: 'display:inline-flex;align-items:center;justify-content:center;padding:0.625rem 1rem;border:1px solid #111;background:#111;color:#fff;font-size:0.6875rem;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;'
+						}
+					>
+						Todos
+					</a>
+					{categories.map((category) => {
+						const active = selectedCategory?.id === category.id;
+						return (
+							<a
+								href={`/productos?cat=${encodeURIComponent(category.slug)}`}
+								style={
+									active
+										? 'display:inline-flex;align-items:center;justify-content:center;padding:0.625rem 1rem;border:1px solid #111;background:#111;color:#fff;font-size:0.6875rem;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;'
+										: 'display:inline-flex;align-items:center;justify-content:center;padding:0.625rem 1rem;border:1px solid #e5e7eb;font-size:0.6875rem;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;color:#111;transition:border-color 0.2s;'
+								}
+								onmouseover={!active ? "this.style.borderColor='#111'" : undefined}
+								onmouseout={!active ? "this.style.borderColor='#e5e7eb'" : undefined}
+							>
+								{category.name}
+							</a>
+						);
+					})}
+				</div>
+
+				<div style="display: flex; align-items: center; gap: 0.75rem;">
+					<label for="sort" style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #6b7280;">
+						Ordenar por
+					</label>
+					<select
+						id="sort"
+						style="padding: 0.625rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.8125rem; background: #fff;"
+					>
+						<option value="relevance">Relevancia</option>
+						<option value="price-asc">Precio asc</option>
+						<option value="price-desc">Precio desc</option>
+						<option value="stock">Stock</option>
+					</select>
+				</div>
+			</div>
+
+			{filteredProducts.length === 0 && !(categoriesError || productsError) && (
+				<div style="text-align: center; padding: 3rem 0; border: 1px solid #e5e7eb;">
+					<p style="font-size: 0.875rem; color: #9ca3af; margin: 0;">
+						No hay productos para mostrar.
+					</p>
+				</div>
+			)}
+
+			<div
+				id="products-grid"
+				style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2rem;"
+			>
+				{filteredProducts.map((product, idx) => {
+					const category = categoriesById.get(product.category_id);
+					const imagesRaw = product.images;
+					const images = Array.isArray(imagesRaw) ? (imagesRaw as string[]) : [];
+					const imageUrl = images.length > 0 ? images[0] : undefined;
+					const detailHref = `/productos/${encodeURIComponent(product.slug)}`;
+
+					return (
+						<article
+							data-index={String(idx)}
+							data-price={String(product.price_cents)}
+							data-stock={String(product.stock)}
+							style="display: flex; flex-direction: column;"
+						>
+							<div style="margin-bottom: 1rem;">
+								<a href={detailHref} style="display: block; color: inherit; text-decoration: none;">
+									{imageUrl ? (
+										<img
+											src={imageUrl}
+											alt={product.name}
+											loading="lazy"
+											style="width: 100%; aspect-ratio: 3/4; object-fit: cover; background: #f5f5f5;"
+										/>
+									) : (
+										<div
+											style="width: 100%; aspect-ratio: 3/4; background: #f5f5f5; display: flex; align-items: center; justify-content: center;"
+										>
+											<span style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af;">
+												Imagen no disponible
+											</span>
+										</div>
+									)}
+								</a>
+							</div>
+
+							<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+								{category && (
+									<p style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af; margin: 0;">
+										{category.name}
+									</p>
+								)}
+								<h3 style="font-size: 1rem; font-weight: 400; margin: 0;">
+									<a href={detailHref} style="color: #111; text-decoration: none;">
+										{product.name}
+									</a>
+								</h3>
+								{(() => {
+									const discounted = discountPercent > 0 ? applyPercentDiscountCents(product.price_cents, discountPercent) : product.price_cents;
+									const hasDiscount = discountPercent > 0 && discounted < product.price_cents;
+									return (
+										<p style="font-size: 0.9375rem; font-weight: 500; margin: 0;">
+											{hasDiscount ? (
+												<span style="display: inline-flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;">
+													<span style="color: #9ca3af; font-weight: 400; text-decoration: line-through;">{formatPrice(product.price_cents)}</span>
+													<span style="color: #111;">{formatPrice(discounted)}</span>
+													<span style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #111;">-{discountPercent}%</span>
+												</span>
+											) : (
+												<>{formatPrice(product.price_cents)}</>
+											)}
+										</p>
+									);
+								})()}
+								<p style="font-size: 0.75rem; color: #9ca3af; margin: 0;">
+									Stock: {product.stock}
+								</p>
+							</div>
+
+							<div style="margin-top: 1rem;">
+								{Array.isArray(product.sizes) && product.sizes.length > 0 ? (
+									<a
+										href={detailHref}
+										class="btn-primary w-full block text-center"
+									>
+										Ver producto
+									</a>
+								) : (
+									<AddToCartButton
+										client:load
+										productId={product.id}
+										name={product.name}
+										priceCents={product.price_cents}
+										stock={product.stock}
+										imageUrl={imageUrl}
+									/>
+								)}
+							</div>
+						</article>
+					);
+				})}
+			</div>
+		</div>
+	</section>
+
+	<script>
+		(() => {
+			const grid = document.getElementById('products-grid') as HTMLElement | null;
+			const select = document.getElementById('sort') as HTMLSelectElement | null;
+			if (!grid || !select) return;
+
+			try {
+				const params = new URLSearchParams(window.location.search);
+				if (params.get('flash') === '1') {
+					grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				}
+			} catch {}
+
+			const getItems = () => Array.from(grid.children);
+			const parseNum = (value: string | null) => {
+				const n = Number(value);
+				return Number.isFinite(n) ? n : 0;
+			};
+
+			select.addEventListener('change', () => {
+				const value = select.value;
+				const items = getItems();
+				items.sort((a, b) => {
+					const ia = parseNum(a.getAttribute('data-index'));
+					const ib = parseNum(b.getAttribute('data-index'));
+					if (value === 'relevance') return ia - ib;
+					if (value === 'price-asc') return parseNum(a.getAttribute('data-price')) - parseNum(b.getAttribute('data-price'));
+					if (value === 'price-desc') return parseNum(b.getAttribute('data-price')) - parseNum(a.getAttribute('data-price'));
+					if (value === 'stock') return parseNum(b.getAttribute('data-stock')) - parseNum(a.getAttribute('data-stock'));
+					return ia - ib;
+				});
+				for (const el of items) grid.appendChild(el);
+			});
+		})();
+	</script>
+
+	<CartPanel client:only="preact" />
+</StoreLayout>

@@ -1,0 +1,118 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { supabase } from '../../lib/supabase';
+import AddToCartButton from '../../components/islands/AddToCartButton.tsx';
+import CartPanel from '../../components/islands/CartPanel.tsx';
+import { applyPercentDiscountCents, getActiveFlashOffer } from '../../lib/flashOffer';
+import { formatPriceEURFromCents } from '../../lib/price';
+
+type CategoryRow = {
+	id: string;
+	name: string;
+	slug: string;
+};
+
+type ProductRow = {
+	id: string;
+	name: string;
+	slug: string;
+	price_cents: number;
+	stock: number;
+	category_id: string;
+	images: unknown;
+	is_active: boolean;
+};
+
+const { slug } = Astro.params;
+const categorySlug = slug ?? '';
+const decodedCategorySlug = decodeURIComponent(categorySlug);
+
+const sb = supabase as any;
+
+const { data: categoryData, error: categoryError } = await sb
+	.from('fs_categories')
+	.select('id,name,slug')
+	.eq('slug', decodedCategorySlug)
+	.maybeSingle();
+
+if (categoryError) {
+	console.error('[categoria] categoryError:', categoryError);
+}
+
+const category: CategoryRow | null = categoryData ?? null;
+
+let products: ProductRow[] = [];
+let productsError: unknown = null;
+
+if (category) {
+	const { data: productsData, error } = await sb
+		.from('fs_products')
+		.select('id,name,slug,price_cents,stock,category_id,images,is_active')
+		.eq('category_id', category.id)
+		.eq('is_active', true)
+		;
+
+	products = productsData ?? [];
+	productsError = error;
+
+	if (productsError) {
+		console.error('[categoria] productsError:', productsError);
+	}
+}
+
+if (!category && !categoryError) {
+	Astro.response.status = 404;
+}
+
+const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
+
+const activeOffer = await getActiveFlashOffer(sb);
+const discountPercent = activeOffer?.discount_percent ?? 0;
+---
+
+<Layout title={`Fashion Store - ${category?.name ?? 'Categoría'}`} showNav={false}>
+	<section class="card" style="max-width: 1200px; margin: 2rem auto;">
+		<a class="btn-secondary" href="/productos">Volver a productos</a>
+		<h1 style="margin-top: 1rem;">
+			Categoría: {category?.name ?? 'Categoría no encontrada'}
+		</h1>
+		{!category && !categoryError && <p class="helper-text">Categoría no encontrada.</p>}
+
+		<div
+			style="margin-top: 1.5rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;"
+		>
+			{category && products.length === 0 && !productsError && <p>No hay productos en esta categoría.</p>}
+			{products.map((product) => (
+				<article class="card">
+					<h3>{product.name}</h3>
+					<div class="helper-text">Stock: {product.stock}</div>
+					{(() => {
+						const discounted = discountPercent > 0 ? applyPercentDiscountCents(product.price_cents, discountPercent) : product.price_cents;
+						const hasDiscount = discountPercent > 0 && discounted < product.price_cents;
+						return (
+							<div style="margin-top: 0.75rem; font-weight: 600;">
+								{hasDiscount ? (
+									<span style="display: inline-flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;">
+										<span style="color: #9ca3af; font-weight: 400; text-decoration: line-through;">{formatPrice(product.price_cents)}</span>
+										<span style="color: #111;">{formatPrice(discounted)}</span>
+										<span style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #111;">-{discountPercent}%</span>
+									</span>
+								) : (
+									<>{formatPrice(product.price_cents)}</>
+								)}
+							</div>
+						);
+					})()}
+					<AddToCartButton
+						client:load
+						productId={product.id}
+						name={product.name}
+						priceCents={product.price_cents}
+						stock={product.stock}
+					/>
+				</article>
+			))}
+		</div>
+	</section>
+	<CartPanel client:only="preact" />
+</Layout>

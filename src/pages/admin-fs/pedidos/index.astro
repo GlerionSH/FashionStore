@@ -1,0 +1,99 @@
+---
+import AdminFSLayout from '../../../layouts/AdminFSLayout.astro';
+import { getSupabaseAdmin } from '../../../lib/database/supabaseServer';
+import { formatPriceEURFromCents } from '../../../lib/price';
+
+export const prerender = false;
+
+const sb = getSupabaseAdmin() as any;
+
+let error: string | null = null;
+
+type OrderRow = {
+	id: string;
+	created_at: string;
+	email: string | null;
+	user_id: string | null;
+	subtotal_cents: number;
+	discount_cents: number;
+	total_cents: number;
+	status: string;
+};
+
+const { data: ordersData, error: ordersError } = await sb
+	.from('fs_orders')
+	.select('id,created_at,email,user_id,subtotal_cents,discount_cents,total_cents,status')
+	.order('created_at', { ascending: false })
+	.limit(50);
+
+if (ordersError) {
+	error = ordersError.message || 'Error cargando pedidos';
+}
+
+const orders: OrderRow[] = ordersData ?? [];
+
+const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
+---
+
+<AdminFSLayout title="Admin FashionStore - Pedidos">
+	<section style="padding: 3rem 0 4rem;">
+		<div class="container">
+			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
+				<div>
+					<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.75rem;">
+						Pedidos
+					</p>
+					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
+						Pedidos
+					</h1>
+					<p class="helper-text" style="margin-top: 0.75rem; max-width: 640px;">
+						Ultimos 50 pedidos creados por checkout
+					</p>
+				</div>
+				<a class="btn-secondary" href="/admin-fs">Volver</a>
+			</div>
+
+			{error && <div class="alert alert-error" style="margin-top: 1.5rem;">{error}</div>}
+
+			<div style="margin-top: 2rem; border: 1px solid #e5e7eb; overflow-x: auto;">
+				<table>
+					<thead>
+						<tr>
+							<th>Fecha</th>
+							<th>Order ID</th>
+							<th>Email</th>
+							<th>User ID</th>
+							<th style="text-align: right;">Subtotal</th>
+							<th style="text-align: right;">Discount</th>
+							<th style="text-align: right;">Total</th>
+							<th>Status</th>
+						</tr>
+					</thead>
+					<tbody>
+						{orders.map((o) => (
+							<tr>
+								<td style="white-space: nowrap;">{new Date(o.created_at).toLocaleString()}</td>
+								<td style="font-weight: 500;">
+									<a class="btn-secondary" href={`/admin-fs/pedidos/${encodeURIComponent(o.id)}`} style="padding: 0.5rem 1rem;">
+										Ver
+									</a>
+									<span style="margin-left: 0.5rem; color: #6b7280; font-size: 0.8125rem;">{o.id}</span>
+								</td>
+								<td>{o.email ?? '-'}</td>
+								<td>{o.user_id ?? '-'}</td>
+								<td style="text-align: right;">{formatPrice(o.subtotal_cents)}</td>
+								<td style="text-align: right;">{formatPrice(o.discount_cents)}</td>
+								<td style="text-align: right; font-weight: 500;">{formatPrice(o.total_cents)}</td>
+								<td>{o.status}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+
+			{orders.length === 0 && !ordersError && (
+				<p class="helper-text" style="margin-top: 1rem;">No hay pedidos</p>
+			)}
+		</div>
+	</section>
+</AdminFSLayout>

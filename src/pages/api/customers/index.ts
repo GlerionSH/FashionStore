@@ -1,70 +1,71 @@
 import type { APIRoute } from 'astro';
-import { supabase } from '../../../lib/database/supabase';
+import { getContacts, searchContacts } from '../../../lib/services/contactService';
 
-export const GET: APIRoute = async ({ request, cookies }) => {
+export const prerender = false;
+
+export const GET: APIRoute = async ({ request }) => {
   try {
-    // Verificar autenticación
-    const token = cookies.get('sb-access-token')?.value;
-    
-    if (!token) {
-      return new Response(
-        JSON.stringify({ error: 'No autorizado' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Obtener datos del usuario autenticado
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Token inválido o expirado' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
     // Obtener parámetros de la query
     const url = new URL(request.url);
-    const limite = parseInt(url.searchParams.get('limite') || '10');
-    const offset = parseInt(url.searchParams.get('offset') || '0');
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const per_page = parseInt(url.searchParams.get('limite') || '50');
     const busqueda = url.searchParams.get('busqueda');
     const estado = url.searchParams.get('estado');
-    const ordenarPor = url.searchParams.get('ordenar_por') || 'fecha_creacion';
-    const orden = url.searchParams.get('orden') || 'desc';
+    const contact_type = url.searchParams.get('tipo');
 
-    // Construir query
-    let query = supabase
-      .from('clientes')
-      .select('*', { count: 'exact' })
-      .eq('usuario_id', user.id);
-
-    // Aplicar filtros
-    if (estado) {
-      query = query.eq('estado', estado);
-    }
-
+    // Si hay búsqueda, usar searchContacts
     if (busqueda) {
-      query = query.or(
-        `nombre.ilike.%${busqueda}%,` +
-        `correo_electronico.ilike.%${busqueda}%,` +
-        `empresa.ilike.%${busqueda}%`
+      const result = await searchContacts(busqueda);
+      
+      if (!result.success) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Error al buscar clientes',
+            details: result.error 
+          }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: result.data,
+          total: result.data.length,
+          page: 1,
+          per_page: result.data.length,
+          tiene_mas: false,
+        }),
+        { 
+          status: 200, 
+          headers: { 'Content-Type': 'application/json' } 
+        }
       );
     }
 
-    // Ordenamiento
-    query = query.order(ordenarPor, { ascending: orden === 'asc' });
+    // Obtener contactos con filtros
+    const filters: any = { page, per_page };
+    
+    // Mapear estados de español a inglés
+    if (estado) {
+      filters.status = estado === 'activo' ? 'active' : 
+                       estado === 'inactivo' ? 'inactive' :
+                       estado === 'prospecto' ? 'qualified' :
+                       estado === 'lead' ? 'new' : estado;
+    }
 
-    // Paginación
-    query = query.range(offset, offset + limite - 1);
+    if (contact_type) {
+      filters.contact_type = contact_type;
+    }
 
-    const { data, error, count } = await query;
+    const result = await getContacts(filters);
 
-    if (error) {
-      console.error('Error al obtener clientes:', error);
+    if (!result.success) {
+      console.error('Error al obtener clientes:', result.error);
       return new Response(
         JSON.stringify({ 
           error: 'Error al obtener clientes',
-          details: error.message 
+          details: result.error 
         }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
@@ -74,11 +75,11 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     return new Response(
       JSON.stringify({
         success: true,
-        data: data || [],
-        total: count || 0,
-        limite,
-        offset,
-        tiene_mas: count ? offset + limite < count : false,
+        data: result.data || [],
+        total: result.pagination?.total || 0,
+        page: result.pagination?.page || 1,
+        limite: result.pagination?.per_page || per_page,
+        tiene_mas: result.pagination ? result.pagination.page < result.pagination.total_pages : false,
       }),
       { 
         status: 200, 

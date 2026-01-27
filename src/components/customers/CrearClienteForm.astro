@@ -2,11 +2,10 @@
 // Componente de formulario para crear clientes
 ---
 
-<div class="crear-cliente-form">
+<div class="form-wrapper">
   <form id="crearClienteForm" class="form">
-    <!-- Sección: Información Básica -->
     <div class="form-section">
-      <h2 class="section-title">Información Básica</h2>
+      <h3 class="section-title">Información Básica</h3>
       
       <div class="form-row">
         <div class="form-group">
@@ -61,9 +60,8 @@
       </div>
     </div>
 
-    <!-- Sección: Estado y Notas -->
     <div class="form-section">
-      <h2 class="section-title">Estado y Notas</h2>
+      <h3 class="section-title">Estado y Notas</h3>
       
       <div class="form-row">
         <div class="form-group">
@@ -101,29 +99,25 @@
       </div>
     </div>
 
-    <!-- Botones de acción -->
     <div class="form-actions">
-      <button type="button" class="btn-cancel" onclick="window.location.href='/customers'">
+      <button type="button" class="btn-secondary" onclick="window.location.href='/customers'">
         Cancelar
       </button>
-      <button type="submit" class="btn-submit" id="submitBtn">
+      <button type="submit" class="btn-primary" id="submitBtn">
         <span class="btn-text">Crear Cliente</span>
         <span class="btn-loading" style="display: none;">
-          <svg class="spinner" viewBox="0 0 24 24">
-            <circle class="spinner-circle" cx="12" cy="12" r="10"></circle>
-          </svg>
+          <div class="spinner"></div>
           Creando...
         </span>
       </button>
     </div>
   </form>
 
-  <!-- Mensaje de éxito/error -->
   <div id="message" class="message" style="display: none;"></div>
 </div>
 
 <style>
-  .crear-cliente-form {
+  .form-wrapper {
     width: 100%;
   }
 
@@ -140,17 +134,16 @@
   }
 
   .section-title {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 600;
-    color: #1f2937;
     margin-bottom: 0.5rem;
     padding-bottom: 0.75rem;
-    border-bottom: 2px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
   }
 
   .form-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1.5rem;
   }
 
@@ -160,138 +153,43 @@
     gap: 0.5rem;
   }
 
-  label {
-    font-weight: 500;
-    color: #374151;
-    font-size: 0.875rem;
-  }
-
-  label.required::after {
-    content: ' *';
-    color: #ef4444;
-  }
-
-  .form-input,
-  .form-select,
-  .form-textarea {
-    padding: 0.75rem;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: all 0.2s;
-    font-family: inherit;
-  }
-
-  .form-input:focus,
-  .form-select:focus,
-  .form-textarea:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
-
   .form-textarea {
     resize: vertical;
-    min-height: 100px;
-  }
-
-  .helper-text {
-    font-size: 0.75rem;
-    color: #6b7280;
-  }
-
-  .error-message {
-    color: #ef4444;
-    font-size: 0.75rem;
-    min-height: 1rem;
+    min-height: 120px;
   }
 
   .form-actions {
     display: flex;
     gap: 1rem;
     justify-content: flex-end;
-    padding-top: 1rem;
-    border-top: 2px solid #e5e7eb;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
   }
 
-  .btn-cancel,
-  .btn-submit {
-    padding: 0.75rem 2rem;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    border: none;
-  }
-
-  .btn-cancel {
-    background: #fff;
-    color: #4b5563;
-    border: 2px solid #e5e7eb;
-  }
-
-  .btn-cancel:hover {
-    background: #f9fafb;
-    border-color: #d1d5db;
-  }
-
-  .btn-submit {
-    background: #3b82f6;
-    color: white;
-    border: 2px solid #3b82f6;
-    position: relative;
-  }
-
-  .btn-submit:hover:not(:disabled) {
-    background: #2563eb;
-    border-color: #2563eb;
-  }
-
-  .btn-submit:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .spinner {
-    width: 1rem;
-    height: 1rem;
-    animation: spin 1s linear infinite;
-    display: inline-block;
-    margin-right: 0.5rem;
-  }
-
-  .spinner-circle {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 3;
-    stroke-dasharray: 50;
-    stroke-dashoffset: 25;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
+  .btn-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .message {
     margin-top: 1.5rem;
-    padding: 1rem;
-    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius);
+    font-size: 0.9375rem;
     font-weight: 500;
   }
 
   .message.success {
     background: #d1fae5;
     color: #065f46;
-    border: 1px solid #10b981;
+    border: 1px solid #6ee7b7;
   }
 
   .message.error {
     background: #fee2e2;
     color: #991b1b;
-    border: 1px solid #ef4444;
+    border: 1px solid #fca5a5;
   }
 
   @media (max-width: 768px) {
@@ -303,100 +201,9 @@
       flex-direction: column-reverse;
     }
 
-    .btn-cancel,
-    .btn-submit {
+    .btn-secondary,
+    .btn-primary {
       width: 100%;
     }
   }
 </style>
-
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('crearClienteForm') as HTMLFormElement;
-    const submitBtn = document.getElementById('submitBtn') as HTMLButtonElement;
-    const btnText = submitBtn.querySelector('.btn-text') as HTMLElement;
-    const btnLoading = submitBtn.querySelector('.btn-loading') as HTMLElement;
-    const messageDiv = document.getElementById('message') as HTMLElement;
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      // Limpiar errores previos
-      document.querySelectorAll('.error-message').forEach((el) => {
-        el.textContent = '';
-      });
-      messageDiv.style.display = 'none';
-
-      // Validación básica
-      const formData = new FormData(form);
-      const nombre = formData.get('nombre') as string;
-      const correo = formData.get('correo_electronico') as string;
-
-      let hasErrors = false;
-
-      if (!nombre || nombre.trim().length < 2) {
-        document.getElementById('error-nombre')!.textContent = 'El nombre debe tener al menos 2 caracteres';
-        hasErrors = true;
-      }
-
-      if (!correo || !correo.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-        document.getElementById('error-correo')!.textContent = 'Ingrese un correo electrónico válido';
-        hasErrors = true;
-      }
-
-      if (hasErrors) return;
-
-      // Mostrar estado de carga
-      submitBtn.disabled = true;
-      btnText.style.display = 'none';
-      btnLoading.style.display = 'flex';
-
-      try {
-        const clienteData = {
-          nombre: formData.get('nombre'),
-          correo_electronico: formData.get('correo_electronico'),
-          telefono: formData.get('telefono') || null,
-          empresa: formData.get('empresa') || null,
-          estado: formData.get('estado') || 'activo',
-          notas: formData.get('notas') || null,
-          fecha_suscripcion: formData.get('fecha_suscripcion') || null,
-        };
-
-        const response = await fetch('/api/customers/crear', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(clienteData),
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || 'Error al crear el cliente');
-        }
-
-        // Mostrar mensaje de éxito
-        messageDiv.textContent = '✓ Cliente creado exitosamente';
-        messageDiv.className = 'message success';
-        messageDiv.style.display = 'block';
-
-        // Redirigir después de 1.5 segundos
-        setTimeout(() => {
-          window.location.href = `/customers/${result.data.id}`;
-        }, 1500);
-
-      } catch (error) {
-        console.error('Error:', error);
-        messageDiv.textContent = `✗ ${error instanceof Error ? error.message : 'Error al crear el cliente'}`;
-        messageDiv.className = 'message error';
-        messageDiv.style.display = 'block';
-
-        // Restaurar botón
-        submitBtn.disabled = false;
-        btnText.style.display = 'inline';
-        btnLoading.style.display = 'none';
-      }
-    });
-  });
-</script>

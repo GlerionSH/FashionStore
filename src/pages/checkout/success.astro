@@ -1,0 +1,118 @@
+---
+import StoreLayout from '../../layouts/StoreLayout.astro';
+
+export const prerender = false;
+
+const sessionId = Astro.url.searchParams.get('session_id');
+---
+
+<StoreLayout title="Pago completado - Fashion Store" showAuth={true}>
+	<section style="padding: 4rem 0;">
+		<div class="container container-sm">
+			<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
+				Pago completado
+			</h1>
+			<p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.75rem;">
+				Gracias. Si el pago se ha realizado correctamente, verás tu pedido en tu cuenta.
+			</p>
+
+			<div id="invoice-block" style="margin-top: 1.5rem; display: none;">
+				<p id="invoice-status" style="font-size: 0.875rem; color: #6b7280; margin-top: 0.75rem;"></p>
+				<a
+					id="invoice-download"
+					class="btn-primary"
+					href="#"
+					style="width: 100%; text-align: center; margin-top: 0.75rem; display: none;"
+				>
+					Descargar factura (PDF)
+				</a>
+			</div>
+
+			{sessionId && (
+				<p style="font-size: 0.8125rem; color: #9ca3af; margin-top: 1rem; word-break: break-word;">
+					Session ID: {sessionId}
+				</p>
+			)}
+
+			<div style="margin-top: 2rem; display: grid; gap: 0.75rem;">
+				<a class="btn-primary" href="/cuenta" style="width: 100%; text-align: center;">Ir a mi cuenta</a>
+				<a class="btn-secondary" href="/" style="width: 100%; text-align: center;">Volver al inicio</a>
+			</div>
+		</div>
+	</section>
+
+	<script define:vars={{ sessionId }}>
+		(() => {
+			const block = document.getElementById('invoice-block');
+			const statusEl = document.getElementById('invoice-status');
+			const linkEl = document.getElementById('invoice-download');
+			if (!sessionId) return;
+			if (!(block instanceof HTMLDivElement)) return;
+			if (!(statusEl instanceof HTMLParagraphElement)) return;
+			if (!(linkEl instanceof HTMLAnchorElement)) return;
+			block.style.display = '';
+
+			let tries = 0;
+			const maxTries = 30;
+
+			const tick = async () => {
+				tries++;
+				statusEl.textContent = 'Generando factura…';
+				try {
+					const url = `/api/orders/invoice-url?session_id=${encodeURIComponent(sessionId)}`;
+					const res = await fetch(url, { method: 'GET', credentials: 'include' });
+					const body = await res.json().catch(() => ({}));
+					console.info('[success] invoice-url response', { status: res.status, body });
+
+					if (res.ok && body && typeof body.invoiceUrl === 'string' && body.invoiceUrl) {
+						linkEl.href = body.invoiceUrl;
+						linkEl.style.display = '';
+						statusEl.textContent = '';
+						return;
+					}
+
+					if (res.status === 401) {
+						statusEl.textContent = 'Inicia sesión para descargar la factura.';
+						return;
+					}
+
+					if (res.status === 403) {
+						statusEl.textContent = 'No tienes permisos para esa factura.';
+						return;
+					}
+
+					if (res.status === 404 && body?.error === 'invoice_not_ready') {
+						if (tries < maxTries) {
+							setTimeout(tick, 2000);
+							return;
+						}
+						statusEl.textContent = 'La factura aún no está lista. Recarga en unos segundos o entra en Mis pedidos.';
+						return;
+					}
+
+					if (res.status >= 500) {
+						statusEl.textContent = 'Error del servidor generando factura.';
+						return;
+					}
+
+					statusEl.textContent = 'No se pudo obtener la factura.';
+				} catch (err) {
+					console.info('[success] invoice-url fetch error', err);
+					if (tries < maxTries) {
+						setTimeout(tick, 2000);
+						return;
+					}
+					statusEl.textContent = 'La factura aún no está lista. Recarga en unos segundos o entra en Mis pedidos.';
+				}
+			};
+
+			tick();
+		})();
+
+		try {
+			window.localStorage.removeItem('fashionstore_cart_v1');
+		} catch {
+			// ignore
+		}
+	</script>
+</StoreLayout>

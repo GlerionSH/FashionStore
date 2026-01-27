@@ -1,0 +1,608 @@
+---
+import StoreLayout from '../../layouts/StoreLayout.astro';
+import { supabase } from '../../lib/supabase';
+import ProductPurchase from '../../components/islands/ProductPurchase.tsx';
+import { applyPercentDiscountCents, getActiveFlashOffer } from '../../lib/flashOffer';
+import { formatPriceEURFromCents } from '../../lib/price';
+
+export const prerender = false;
+
+type CategoryRow = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+type ProductRow = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  price_cents: number;
+  stock: number;
+  category_id: string | null;
+  images: unknown;
+  is_active: boolean;
+  product_type?: string;
+  sizes?: string[];
+  size_stock?: Record<string, number>;
+};
+
+const { slug } = Astro.params;
+const productSlug = slug ?? '';
+const decodedProductSlug = decodeURIComponent(productSlug);
+
+const sb = supabase as any;
+
+const { data: productData, error: productError } = await sb
+  .from('fs_products')
+  .select('id,name,slug,description,price_cents,stock,category_id,images,is_active,product_type,sizes,size_stock')
+  .eq('slug', decodedProductSlug)
+  .maybeSingle();
+
+if (productError) {
+  console.error('[producto] productError:', productError);
+}
+
+const product: ProductRow | null = productData ?? null;
+
+if (!product || !product.is_active) {
+  Astro.response.status = 404;
+}
+
+let category: CategoryRow | null = null;
+if (product?.category_id) {
+  const { data: categoryData, error: categoryError } = await sb
+    .from('fs_categories')
+    .select('id,name,slug')
+    .eq('id', product.category_id)
+    .maybeSingle();
+
+  if (categoryError) {
+    console.error('[producto] categoryError:', categoryError);
+  }
+
+  category = categoryData ?? null;
+}
+
+const imagesRaw = product?.images;
+const images: string[] = Array.isArray(imagesRaw) ? (imagesRaw as string[]) : [];
+const imageUrl = images.length > 0 ? images[0] : undefined;
+
+const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
+
+const activeOffer = await getActiveFlashOffer(sb);
+const discountPercent = activeOffer?.discount_percent ?? 0;
+
+let related: ProductRow[] = [];
+if (product) {
+  if (product.category_id) {
+    const { data: relatedData, error: relatedError } = await sb
+      .from('fs_products')
+      .select('id,name,slug,price_cents,stock,category_id,images,is_active')
+      .eq('is_active', true)
+      .eq('category_id', product.category_id)
+      .neq('id', product.id)
+      .order('name', { ascending: true })
+      .limit(4);
+
+    if (relatedError) {
+      console.error('[producto] relatedError:', relatedError);
+    }
+
+    related = relatedData ?? [];
+  } else {
+    const { data: relatedData, error: relatedError } = await sb
+      .from('fs_products')
+      .select('id,name,slug,price_cents,stock,category_id,images,is_active')
+      .eq('is_active', true)
+      .neq('id', product.id)
+      .order('name', { ascending: true })
+      .limit(4);
+
+    if (relatedError) {
+      console.error('[producto] relatedError:', relatedError);
+    }
+
+    related = relatedData ?? [];
+  }
+}
+
+---
+
+<StoreLayout title={`${product?.name ?? 'Producto'} - Fashion Store`}>
+  <!-- Breadcrumb -->
+  <div class="pdp-shell pdp-breadcrumb">
+    <nav class="pdp-breadcrumb-nav">
+      <a href="/" class="pdp-breadcrumb-link">Inicio</a>
+      <span class="pdp-breadcrumb-sep">/</span>
+      <a href="/productos" class="pdp-breadcrumb-link">Productos</a>
+      <span class="pdp-breadcrumb-sep">/</span>
+      <span class="pdp-breadcrumb-current">{product?.name ?? 'Producto'}</span>
+    </nav>
+  </div>
+
+  <section class="pdp-section">
+    <div class="pdp-shell">
+      {(!product || !product.is_active) && (
+        <div class="pdp-notfound">
+          <p class="pdp-notfound-kicker">Producto</p>
+          <h1 class="pdp-notfound-title">Producto no encontrado</h1>
+          <a href="/productos" class="pdp-notfound-link">
+            Volver al catalogo
+          </a>
+        </div>
+      )}
+
+      {product && product.is_active && (
+        <>
+          <div class="pdp-grid">
+            <!-- Left: Gallery -->
+            <div class="pdp-gallery">
+              <div class="pdp-media">
+                {images.length > 0 ? (
+                  <img
+                    id={`main-image-${product.id}`}
+                    src={images[0]}
+                    alt={product.name}
+                    loading="eager"
+                    class="pdp-media-img"
+                  />
+                ) : (
+                  <div class="pdp-media-empty">
+                    <span class="pdp-empty-label">
+                      IMAGEN NO DISPONIBLE
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {images.length > 1 && (
+                <div class="pdp-thumbs">
+                  {images.map((url, idx) => (
+                    <button
+                      type="button"
+                      data-target={`main-image-${product.id}`}
+                      data-url={url}
+                      aria-label={`Ver imagen ${idx + 1}`}
+                      class={idx === 0 ? 'pdp-thumb pdp-thumb--active' : 'pdp-thumb'}
+                    >
+                      <img src={url} alt="" loading="lazy" class="pdp-thumb-img" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <!-- Right: Details + Purchase -->
+            <div class="pdp-details">
+              {category?.name && <p class="pdp-kicker">{category.name}</p>}
+              <h1 class="pdp-title">{product.name}</h1>
+              {(() => {
+                const discounted = discountPercent > 0 ? applyPercentDiscountCents(product.price_cents, discountPercent) : product.price_cents;
+                const hasDiscount = discountPercent > 0 && discounted < product.price_cents;
+                return (
+                  <p class="pdp-price">
+                    {hasDiscount ? (
+                      <span style="display: inline-flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+                        <span style="color: #9ca3af; font-weight: 400; text-decoration: line-through;">{formatPrice(product.price_cents)}</span>
+                        <span style="color: #111; font-weight: 500;">{formatPrice(discounted)}</span>
+                        <span style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #111;">-{discountPercent}%</span>
+                      </span>
+                    ) : (
+                      <>{formatPrice(product.price_cents)}</>
+                    )}
+                  </p>
+                );
+              })()}
+              <p class="pdp-stock">Stock: {product.stock}</p>
+              {product.description ? (
+                <p class="pdp-desc">{product.description}</p>
+              ) : (
+                <p class="pdp-desc pdp-desc--muted">Descripcion no disponible.</p>
+              )}
+
+              <ProductPurchase
+                client:only="preact"
+                productId={product.id}
+                name={product.name}
+                priceCents={product.price_cents}
+                stock={product.stock}
+                imageUrl={imageUrl}
+                sizes={product.sizes ?? []}
+                sizeStock={product.size_stock ?? {}}
+              />
+            </div>
+          </div>
+
+          <!-- Related -->
+          <div class="pdp-related">
+            <h2 class="pdp-related-title">
+              Tambien te puede interesar
+            </h2>
+
+            {related.length === 0 && (
+              <p class="pdp-related-empty">No hay productos relacionados.</p>
+            )}
+
+            {related.length > 0 && (
+              <div class="pdp-related-grid">
+                {related.map((rp) => {
+                  const rImagesRaw = rp.images;
+                  const rImages = Array.isArray(rImagesRaw) ? (rImagesRaw as string[]) : [];
+                  const rImageUrl = rImages.length > 0 ? rImages[0] : undefined;
+
+                  return (
+                    <article class="pdp-related-card">
+                      <a href={`/productos/${encodeURIComponent(rp.slug)}`} class="pdp-related-media">
+                        {rImageUrl ? (
+                          <img
+                            src={rImageUrl}
+                            alt={rp.name}
+                            loading="lazy"
+                            class="pdp-related-img"
+                          />
+                        ) : (
+                          <div class="pdp-related-img pdp-related-img--empty" />
+                        )}
+                      </a>
+
+                      <a href={`/productos/${encodeURIComponent(rp.slug)}`} class="pdp-related-link">
+                        {rp.name}
+                      </a>
+
+                      {(() => {
+                        const discounted = discountPercent > 0 ? applyPercentDiscountCents(rp.price_cents, discountPercent) : rp.price_cents;
+                        const hasDiscount = discountPercent > 0 && discounted < rp.price_cents;
+                        return (
+                          <p class="pdp-related-price">
+                            {hasDiscount ? (
+                              <span style="display: inline-flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+                                <span style="color: #9ca3af; font-weight: 400; text-decoration: line-through;">{formatPrice(rp.price_cents)}</span>
+                                <span style="color: #111; font-weight: 500;">{formatPrice(discounted)}</span>
+                                <span style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #111;">-{discountPercent}%</span>
+                              </span>
+                            ) : (
+                              <>{formatPrice(rp.price_cents)}</>
+                            )}
+                          </p>
+                        );
+                      })()}
+
+                      <a
+                        href={`/productos/${encodeURIComponent(rp.slug)}`}
+                        class="btn-primary"
+                        style="width: fit-content;"
+                      >
+                        VER PRODUCTO
+                      </a>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  </section>
+
+  <script>
+    (() => {
+      const buttons = Array.from(document.querySelectorAll('button[data-target][data-url]'));
+
+      if (buttons.length === 0) return;
+
+      for (const btn of buttons) {
+        if (!(btn instanceof HTMLButtonElement)) continue;
+				btn.addEventListener('click', () => {
+					const targetId = btn.getAttribute('data-target');
+					const url = btn.getAttribute('data-url');
+					if (!targetId || !url) return;
+
+					const img = document.getElementById(targetId);
+					if (!(img instanceof HTMLImageElement)) return;
+
+					img.src = url;
+					const siblings = btn.parentElement
+						? Array.from(btn.parentElement.querySelectorAll('button[data-target][data-url]'))
+						: [];
+					for (const s of siblings) {
+						if (!(s instanceof HTMLButtonElement)) continue;
+						s.classList.remove('pdp-thumb--active');
+					}
+					btn.classList.add('pdp-thumb--active');
+				});
+			}
+		})();
+	</script>
+
+	<style>
+		.pdp-shell {
+			width: 100%;
+			max-width: 72rem;
+			margin: 0 auto;
+			padding-left: 1.5rem;
+			padding-right: 1.5rem;
+		}
+
+		.pdp-breadcrumb {
+			padding-top: 2rem;
+		}
+
+		.pdp-breadcrumb-nav {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.5rem;
+			align-items: center;
+			font-size: 0.75rem;
+			letter-spacing: 0.2em;
+			text-transform: uppercase;
+			color: #9ca3af;
+		}
+
+		.pdp-breadcrumb-link {
+			transition: color 0.2s ease;
+		}
+
+		.pdp-breadcrumb-link:hover {
+			color: #111;
+		}
+
+		.pdp-breadcrumb-sep {
+			color: #e5e7eb;
+		}
+
+		.pdp-breadcrumb-current {
+			color: #111;
+		}
+
+		.pdp-section {
+			padding-top: 2.5rem;
+			padding-bottom: 4rem;
+		}
+
+		.pdp-notfound {
+			border: 1px solid #e5e7eb;
+			padding: 3rem;
+			text-align: center;
+		}
+
+		.pdp-notfound-kicker {
+			font-size: 0.75rem;
+			letter-spacing: 0.25em;
+			text-transform: uppercase;
+			color: #9ca3af;
+			margin-bottom: 1rem;
+		}
+
+		.pdp-notfound-title {
+			font-size: 1.5rem;
+			font-weight: 400;
+			letter-spacing: 0.05em;
+			text-transform: uppercase;
+			margin: 0 0 1rem;
+		}
+
+		.pdp-notfound-link {
+			font-size: 0.875rem;
+			color: #111;
+			text-decoration: underline;
+			text-underline-offset: 4px;
+		}
+
+		.pdp-grid {
+			display: grid;
+			grid-template-columns: 1fr;
+			gap: 2.5rem;
+			align-items: start;
+		}
+
+		@media (min-width: 1024px) {
+			.pdp-grid {
+				grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+				gap: 3rem;
+			}
+		}
+
+		.pdp-gallery {
+			width: 100%;
+		}
+
+		.pdp-media {
+			width: 100%;
+			max-width: 720px;
+			height: 560px;
+			background: #f5f5f5;
+			overflow: hidden;
+			position: relative;
+		}
+
+		.pdp-media img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			display: block;
+		}
+
+		.pdp-media-img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			display: block;
+		}
+
+		.pdp-media-empty {
+			position: absolute;
+			inset: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.pdp-empty-label {
+			font-size: 0.75rem;
+			letter-spacing: 0.25em;
+			text-transform: uppercase;
+			color: #9ca3af;
+		}
+
+		.pdp-thumbs {
+			margin-top: 1rem;
+			display: flex;
+			gap: 12px;
+			overflow-x: auto;
+			padding-bottom: 0.25rem;
+		}
+
+		.pdp-thumb {
+			flex: 0 0 auto;
+			width: 64px;
+			height: 64px;
+			border: 1px solid #e5e7eb;
+			background: #f5f5f5;
+			cursor: pointer;
+			padding: 0;
+		}
+
+		.pdp-thumb--active {
+			border-color: #111;
+		}
+
+		.pdp-thumb-img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			display: block;
+		}
+
+		.pdp-details {
+			align-self: start;
+		}
+
+		@media (min-width: 1024px) {
+			.pdp-details {
+				position: sticky;
+				top: 6rem;
+			}
+		}
+
+		.pdp-kicker {
+			font-size: 0.75rem;
+			letter-spacing: 0.25em;
+			text-transform: uppercase;
+			color: #9ca3af;
+			margin: 0 0 0.75rem;
+		}
+
+		.pdp-title {
+			font-size: 1.875rem;
+			font-weight: 300;
+			letter-spacing: 0.05em;
+			text-transform: uppercase;
+			margin: 0 0 1rem;
+		}
+
+		@media (min-width: 768px) {
+			.pdp-title {
+				font-size: 2.25rem;
+			}
+		}
+
+		.pdp-price {
+			font-size: 1rem;
+			font-weight: 500;
+			margin: 0 0 1.25rem;
+		}
+
+		.pdp-stock {
+			font-size: 0.75rem;
+			letter-spacing: 0.2em;
+			text-transform: uppercase;
+			color: #9ca3af;
+			margin: 0 0 1.5rem;
+		}
+
+		.pdp-desc {
+			font-size: 0.875rem;
+			color: #4b5563;
+			line-height: 1.7;
+			margin: 0 0 1.5rem;
+		}
+
+		.pdp-desc--muted {
+			color: #9ca3af;
+		}
+
+		.pdp-related {
+			margin-top: 4rem;
+			padding-top: 2.5rem;
+			border-top: 1px solid #e5e7eb;
+		}
+
+		.pdp-related-title {
+			font-size: 0.75rem;
+			letter-spacing: 0.25em;
+			text-transform: uppercase;
+			color: #6b7280;
+			margin: 0 0 1.5rem;
+		}
+
+		.pdp-related-empty {
+			font-size: 0.875rem;
+			color: #9ca3af;
+			margin: 0;
+		}
+
+		.pdp-related-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 2rem;
+		}
+
+		@media (min-width: 1024px) {
+			.pdp-related-grid {
+				grid-template-columns: repeat(4, minmax(0, 1fr));
+			}
+		}
+
+		.pdp-related-card {
+			display: flex;
+			flex-direction: column;
+		}
+
+		.pdp-related-media {
+			display: block;
+			margin-bottom: 1rem;
+		}
+
+		.pdp-related-img {
+			width: 100%;
+			height: auto;
+			aspect-ratio: 3 / 4;
+			object-fit: cover;
+			background: #f5f5f5;
+			display: block;
+		}
+
+		.pdp-related-img--empty {
+			object-fit: initial;
+		}
+
+		.pdp-related-name {
+			font-size: 0.875rem;
+			color: #111;
+			margin: 0 0 0.5rem;
+		}
+
+		.pdp-related-price {
+			font-size: 0.875rem;
+			font-weight: 500;
+			margin: 0 0 1rem;
+		}
+
+		.pdp-full {
+			width: 100%;
+		}
+	</style>
+</StoreLayout>

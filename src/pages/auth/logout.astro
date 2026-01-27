@@ -1,0 +1,12 @@
+---
+export const prerender = false;
+
+if (Astro.request.method === 'POST') {
+	Astro.cookies.delete('sb-access-token', { path: '/' });
+	Astro.cookies.delete('sb-refresh-token', { path: '/' });
+	Astro.cookies.delete('sb-user-id', { path: '/' });
+	return Astro.redirect('/');
+}
+
+return Astro.redirect('/');
+---

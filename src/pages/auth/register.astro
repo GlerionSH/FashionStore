@@ -1,0 +1,86 @@
+---
+import StoreLayout from '../../layouts/StoreLayout.astro';
+import { createClient } from '@supabase/supabase-js';
+
+export const prerender = false;
+
+let error: string | null = null;
+let success: string | null = null;
+
+if (Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	const email = String(form.get('email') ?? '').trim();
+	const password = String(form.get('password') ?? '');
+
+	if (!email || !password) {
+		error = 'Email y contraseña son requeridos';
+	} else {
+		const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+		const anonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+		if (!supabaseUrl || !anonKey) {
+			error = 'Supabase no está configurado';
+		} else {
+			const sb = createClient(supabaseUrl, anonKey, {
+				auth: { persistSession: false, autoRefreshToken: false },
+			});
+
+			const { error: signUpError } = await sb.auth.signUp({
+				email,
+				password,
+			});
+
+			if (signUpError) {
+				error = signUpError.message || 'No se pudo crear la cuenta';
+			} else {
+				success = 'Cuenta creada. Ahora puedes iniciar sesion.';
+			}
+		}
+	}
+}
+---
+
+<StoreLayout title="Crear cuenta - Fashion Store" showAuth={false}>
+	<section style="padding: 4rem 0;">
+		<div class="container container-sm">
+			<div style="text-align: center; margin-bottom: 2.5rem;">
+				<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
+					Crear cuenta
+				</h1>
+				<p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.75rem;">
+					Registrate para gestionar tus pedidos
+				</p>
+			</div>
+
+			{error && (
+				<div class="alert alert-error" style="margin-bottom: 1.5rem;">{error}</div>
+			)}
+			{success && (
+				<div class="alert alert-success" style="margin-bottom: 1.5rem;">{success}</div>
+			)}
+
+			<form method="POST" style="display: grid; gap: 1.25rem;">
+				<div>
+					<label for="email" class="form-label">Email</label>
+					<input class="form-input" type="email" id="email" name="email" required />
+				</div>
+				<div>
+					<label for="password" class="form-label">Contraseña</label>
+					<input class="form-input" type="password" id="password" name="password" required />
+				</div>
+				<button class="btn-primary" type="submit" style="width: 100%; margin-top: 0.5rem;">
+					Crear cuenta
+				</button>
+			</form>
+
+			<div style="margin-top: 2rem; text-align: center; font-size: 0.8125rem;">
+				<p style="color: #6b7280; margin: 0 0 0.5rem;">
+					¿Ya tienes cuenta?
+					<a href="/auth/login" style="color: #111; text-decoration: underline; margin-left: 0.25rem;">Iniciar sesion</a>
+				</p>
+				<p style="margin: 0;">
+					<a href="/" style="color: #9ca3af; text-decoration: underline;">Volver al inicio</a>
+				</p>
+			</div>
+		</div>
+	</section>
+</StoreLayout>

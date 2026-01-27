@@ -1,0 +1,77 @@
+---
+import AdminFSLayout from '../../layouts/AdminFSLayout.astro';
+import { getSupabaseAdmin } from '../../lib/database/supabaseServer';
+
+export const prerender = false;
+
+const sb = getSupabaseAdmin() as any;
+
+let error: string | null = null;
+
+if (Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	const enabled = form.get('flash_offers_enabled') === 'on';
+
+	const { error: upsertError } = await sb
+		.from('fs_settings')
+		.upsert({ singleton: true, flash_offers_enabled: enabled }, { onConflict: 'singleton' });
+
+	if (upsertError) {
+		error = upsertError.message || 'No se pudo actualizar la configuración';
+	} else {
+		return Astro.redirect('/admin-fs/ofertas');
+	}
+}
+
+const { data: settingsData, error: settingsError } = await sb
+	.from('fs_settings')
+	.select('flash_offers_enabled')
+	.eq('singleton', true)
+	.maybeSingle();
+
+if (settingsError) {
+	error = settingsError.message || 'No se pudo cargar la configuración';
+}
+
+const flashEnabled = !!settingsData?.flash_offers_enabled;
+---
+
+<AdminFSLayout title="Admin FashionStore - Ofertas">
+	<section style="padding: 3rem 0 4rem;">
+		<div class="container">
+			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
+				<div>
+					<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.75rem;">
+						Ofertas
+					</p>
+					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
+						Ofertas
+					</h1>
+					<p class="helper-text" style="margin-top: 0.75rem; max-width: 640px;">
+						Activa o desactiva las ofertas flash en la tienda
+					</p>
+				</div>
+				<a class="btn-secondary" href="/admin-fs">Volver</a>
+			</div>
+
+			{error && <div class="alert alert-error" style="margin-top: 1.5rem;">{error}</div>}
+
+			<form method="POST" style="margin-top: 2rem; display: grid; gap: 1rem;">
+				<div style="border: 1px solid #e5e7eb; padding: 1.5rem;">
+					<div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+						<div>
+							<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Home</div>
+							<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">Ofertas Flash</div>
+							<div class="helper-text" style="margin-top: 0.5rem;">Si está activado, se mostrará la sección en la Home</div>
+						</div>
+						<label style="display: inline-flex; align-items: center; gap: 0.75rem;">
+							<input type="checkbox" name="flash_offers_enabled" checked={flashEnabled} />
+							<span class="helper-text">{flashEnabled ? 'ON' : 'OFF'}</span>
+						</label>
+					</div>
+				</div>
+				<button class="btn-primary" type="submit" style="width: fit-content;">Guardar</button>
+			</form>
+		</div>
+	</section>
+</AdminFSLayout>

@@ -1,0 +1,420 @@
+---
+import AdminFSLayout from '../../../layouts/AdminFSLayout.astro';
+import { getSupabaseAdmin, getSupabasePublic } from '../../../lib/database/supabaseServer';
+
+export const prerender = false;
+
+const publicSb = getSupabasePublic() as any;
+const adminSb = getSupabaseAdmin() as any;
+
+type CategoryRow = { id: string; name: string };
+
+const { data: categoriesData } = await publicSb.from('fs_categories').select('id,name').order('name');
+const categories: CategoryRow[] = categoriesData ?? [];
+
+let error: string | null = null;
+
+if (Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	const name = String(form.get('name') ?? '').trim();
+	const slug = String(form.get('slug') ?? '').trim();
+	const description = String(form.get('description') ?? '').trim();
+	const priceCents = Number(form.get('price_cents') ?? 0);
+	const stock = Number(form.get('stock') ?? 0);
+	const categoryId = String(form.get('category_id') ?? '').trim();
+	const isActive = form.get('is_active') === 'on';
+	const productType = String(form.get('product_type') ?? 'clothing').trim();
+
+	// Parse sizes and size_stock from form
+	const sizesRaw = form.getAll('sizes[]').map((s) => String(s).trim()).filter(Boolean);
+	const sizeStockRaw: Record<string, number> = {};
+	for (const size of sizesRaw) {
+		const stockVal = Number(form.get(`size_stock_${size}`) ?? 0);
+		if (stockVal < 0) {
+			error = `Stock negativo para talla ${size}`;
+			break;
+		}
+		sizeStockRaw[size] = Math.trunc(stockVal);
+	}
+	// Check for duplicates
+	const uniqueSizes = [...new Set(sizesRaw)];
+	if (uniqueSizes.length !== sizesRaw.length) {
+		error = 'Tallas duplicadas no permitidas';
+	}
+
+	
+	// Parse Cloudinary URLs from hidden inputs
+	const cloudinaryUrls = form.getAll('cloudinary_urls[]').map((u) => String(u).trim()).filter(Boolean);
+
+	if (!name || !slug || !categoryId) {
+		error = error || 'name, slug y category_id son requeridos';
+	} else if (!Number.isFinite(priceCents) || priceCents < 0) {
+		error = error || 'price_cents inválido';
+	} else if (!Number.isFinite(stock) || stock < 0) {
+		error = error || 'stock inválido';
+	} else if (!['clothing', 'shoes'].includes(productType)) {
+		error = error || 'product_type debe ser clothing o shoes';
+	} else if (!error) {
+		const { data: inserted, error: insertError } = await adminSb
+			.from('fs_products')
+			.insert({
+				name,
+				slug,
+				description: description || null,
+				price_cents: Math.trunc(priceCents),
+				stock: Math.trunc(stock),
+				category_id: categoryId,
+				is_active: isActive,
+				images: cloudinaryUrls,
+				product_type: productType,
+				sizes: uniqueSizes,
+				size_stock: sizeStockRaw,
+			})
+			.select('id')
+			.single();
+
+		if (insertError || !inserted?.id) {
+			error = insertError?.message || 'No se pudo crear el producto';
+		} else {
+			return Astro.redirect(`/admin-fs/productos/${encodeURIComponent(inserted.id)}`);
+		}
+	}
+}
+---
+
+<AdminFSLayout title="Admin FashionStore - Nuevo producto">
+	<section style="padding: 3rem 0 4rem;">
+		<div class="container">
+			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
+				<div>
+					<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.75rem;">
+						Catalogo
+					</p>
+					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
+						Nuevo producto
+					</h1>
+					<p class="helper-text" style="margin-top: 0.75rem; max-width: 640px;">
+						Crea un producto en el catalogo
+					</p>
+				</div>
+				<a class="btn-secondary" href="/admin-fs/productos">Volver</a>
+			</div>
+
+			{error && <div class="alert alert-error" style="margin-top: 1.5rem;">{error}</div>}
+
+			<form method="POST" enctype="multipart/form-data" style="margin-top: 2rem; display: grid; gap: 1rem;">
+				<div style="border: 1px solid #e5e7eb; padding: 1.5rem;">
+					<div style="display: grid; gap: 1rem;">
+						<div>
+							<label for="name" class="form-label">Name</label>
+							<input class="form-input" id="name" type="text" name="name" required />
+						</div>
+						<div>
+							<label for="slug" class="form-label">Slug</label>
+							<input class="form-input" id="slug" type="text" name="slug" required />
+						</div>
+						<div>
+							<label for="description" class="form-label">Description</label>
+							<textarea class="form-input" id="description" name="description" rows={4}></textarea>
+						</div>
+
+						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+							<div>
+								<label for="price_cents" class="form-label">Price cents</label>
+								<input class="form-input" id="price_cents" type="number" name="price_cents" min="0" step="1" value="0" required />
+							</div>
+							<div>
+								<label for="stock" class="form-label">Stock general</label>
+								<input class="form-input" id="stock" type="number" name="stock" min="0" step="1" value="0" required />
+							</div>
+						</div>
+
+						<div>
+							<label for="category_id" class="form-label">Category</label>
+							<select class="form-input" id="category_id" name="category_id" required>
+								<option value="">Selecciona...</option>
+								{categories.map((c) => (
+									<option value={c.id}>{c.name}</option>
+								))}
+							</select>
+						</div>
+
+						<div>
+							<label for="product_type" class="form-label">Tipo de producto</label>
+							<select class="form-input" id="product_type" name="product_type">
+								<option value="clothing">Ropa (clothing)</option>
+								<option value="shoes">Zapatos (shoes)</option>
+							</select>
+						</div>
+
+						<label style="display: inline-flex; align-items: center; gap: 0.75rem;">
+							<input type="checkbox" name="is_active" checked />
+							<span class="helper-text">Activo</span>
+						</label>
+					</div>
+				</div>
+
+				<div style="border: 1px solid #e5e7eb; padding: 1.5rem;" id="sizes-section">
+					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Tallas y Stock</div>
+					<div class="helper-text" style="margin-top: 0.5rem;">Selecciona las tallas disponibles y define el stock por talla</div>
+					
+					<div id="size-suggestions" style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem;"></div>
+					
+					<div id="selected-sizes" style="margin-top: 1rem; display: grid; gap: 0.75rem;"></div>
+				</div>
+
+				<div style="border: 1px solid #e5e7eb; padding: 1.5rem;">
+					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Imagenes (Cloudinary)</div>
+					<div class="helper-text" style="margin-top: 0.5rem;">Sube imágenes directamente a Cloudinary (máx 5MB, jpg/png/webp)</div>
+					<div id="images-dropzone" style="margin-top: 1rem; border: 1px dashed #e5e7eb; padding: 1rem; background: #fff;">
+						<input class="form-input" id="images-input" type="file" multiple accept="image/jpeg,image/png,image/webp" style="display: none;" />
+						<button type="button" id="upload-btn" class="btn-secondary" style="width: 100%;">Seleccionar imágenes</button>
+						<div id="upload-status" style="margin-top: 0.75rem; font-size: 0.875rem; color: #6b7280;"></div>
+						<div id="upload-error" style="margin-top: 0.5rem; font-size: 0.875rem; color: #dc2626;"></div>
+						<div id="images-previews" style="margin-top: 0.75rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.5rem;"></div>
+						<div id="cloudinary-urls"></div>
+					</div>
+				</div>
+
+				<button class="btn-primary" type="submit" style="width: fit-content;">Crear</button>
+			</form>
+
+			<script>
+			(() => {
+				// Sizes logic
+				const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+				const SHOES_SIZES = ['39', '40', '41', '42', '43', '44', '45', '46'];
+
+				const productTypeSelect = document.getElementById('product_type') as HTMLSelectElement | null;
+				const suggestionsContainer = document.getElementById('size-suggestions');
+				const selectedContainer = document.getElementById('selected-sizes');
+
+				if (!productTypeSelect || !suggestionsContainer || !selectedContainer) return;
+
+				const selectedSizes: Map<string, number> = new Map();
+
+				const renderSuggestions = () => {
+					const type = productTypeSelect.value;
+					const sizes = type === 'shoes' ? SHOES_SIZES : CLOTHING_SIZES;
+					suggestionsContainer.innerHTML = '';
+
+					for (const size of sizes) {
+						const btn = document.createElement('button');
+						btn.type = 'button';
+						btn.textContent = size;
+						btn.style.cssText = `
+							padding: 0.5rem 1rem;
+							border: 1px solid ${selectedSizes.has(size) ? '#111' : '#e5e7eb'};
+							background: ${selectedSizes.has(size) ? '#111' : '#fff'};
+							color: ${selectedSizes.has(size) ? '#fff' : '#111'};
+							font-size: 0.75rem;
+							letter-spacing: 0.1em;
+							text-transform: uppercase;
+							cursor: pointer;
+							transition: all 0.15s ease;
+						`;
+						btn.addEventListener('click', () => {
+							if (selectedSizes.has(size)) {
+								selectedSizes.delete(size);
+							} else {
+								selectedSizes.set(size, 0);
+							}
+							renderSuggestions();
+							renderSelectedSizes();
+						});
+						suggestionsContainer.appendChild(btn);
+					}
+				};
+
+				const renderSelectedSizes = () => {
+					selectedContainer.innerHTML = '';
+					if (selectedSizes.size === 0) {
+						selectedContainer.innerHTML = '<p style="color: #9ca3af; font-size: 0.875rem;">Sin tallas seleccionadas (producto sin sistema de tallas)</p>';
+						return;
+					}
+
+					for (const [size, stock] of selectedSizes) {
+						const row = document.createElement('div');
+						row.style.cssText = 'display: flex; align-items: center; gap: 1rem; padding: 0.75rem; border: 1px solid #e5e7eb; background: #fafafa;';
+
+						const label = document.createElement('span');
+						label.textContent = `Talla ${size}`;
+						label.style.cssText = 'font-weight: 500; min-width: 80px;';
+
+						const hiddenInput = document.createElement('input');
+						hiddenInput.type = 'hidden';
+						hiddenInput.name = 'sizes[]';
+						hiddenInput.value = size;
+
+						const stockInput = document.createElement('input');
+						stockInput.type = 'number';
+						stockInput.name = `size_stock_${size}`;
+						stockInput.min = '0';
+						stockInput.value = String(stock);
+						stockInput.placeholder = 'Stock';
+						stockInput.style.cssText = 'width: 100px; padding: 0.5rem; border: 1px solid #e5e7eb; font-size: 0.875rem;';
+						stockInput.addEventListener('change', () => {
+							selectedSizes.set(size, Math.max(0, parseInt(stockInput.value) || 0));
+						});
+
+						const removeBtn = document.createElement('button');
+						removeBtn.type = 'button';
+						removeBtn.textContent = 'Quitar';
+						removeBtn.style.cssText = 'padding: 0.5rem 0.75rem; border: 1px solid #991b1b; background: #fff; color: #991b1b; font-size: 0.75rem; cursor: pointer;';
+						removeBtn.addEventListener('click', () => {
+							selectedSizes.delete(size);
+							renderSuggestions();
+							renderSelectedSizes();
+						});
+
+						row.appendChild(label);
+						row.appendChild(hiddenInput);
+						row.appendChild(stockInput);
+						row.appendChild(removeBtn);
+						selectedContainer.appendChild(row);
+					}
+				};
+
+				productTypeSelect.addEventListener('change', () => {
+					selectedSizes.clear();
+					renderSuggestions();
+					renderSelectedSizes();
+				});
+
+				renderSuggestions();
+				renderSelectedSizes();
+			})();
+
+			(() => {
+				const MAX_FILE_SIZE = 5 * 1024 * 1024;
+				const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+				const dropzone = document.getElementById('images-dropzone');
+				const input = document.getElementById('images-input');
+				const uploadBtn = document.getElementById('upload-btn');
+				const previews = document.getElementById('images-previews');
+				const statusEl = document.getElementById('upload-status');
+				const errorEl = document.getElementById('upload-error');
+				const urlsContainer = document.getElementById('cloudinary-urls');
+
+				if (!dropzone || !input || !uploadBtn || !previews || !statusEl || !errorEl || !urlsContainer) return;
+				if (!(input instanceof HTMLInputElement)) return;
+
+				const uploadedImages = [];
+
+				const renderPreviews = () => {
+					previews.innerHTML = '';
+					urlsContainer.innerHTML = '';
+					for (const img of uploadedImages) {
+						const wrap = document.createElement('div');
+						wrap.style.cssText = 'border: 1px solid #e5e7eb; background: #f5f5f5; aspect-ratio: 1; overflow: hidden; position: relative;';
+						const imgEl = document.createElement('img');
+						imgEl.src = img.secure_url;
+						imgEl.alt = 'preview';
+						imgEl.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+						const removeBtn = document.createElement('button');
+						removeBtn.type = 'button';
+						removeBtn.textContent = '×';
+						removeBtn.style.cssText = 'position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; background: #fff; border: 1px solid #e5e7eb; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 1;';
+						removeBtn.addEventListener('click', () => {
+							const idx = uploadedImages.indexOf(img);
+							if (idx >= 0) uploadedImages.splice(idx, 1);
+							renderPreviews();
+						});
+						wrap.appendChild(imgEl);
+						wrap.appendChild(removeBtn);
+						previews.appendChild(wrap);
+
+						const hiddenInput = document.createElement('input');
+						hiddenInput.type = 'hidden';
+						hiddenInput.name = 'cloudinary_urls[]';
+						hiddenInput.value = img.secure_url;
+						urlsContainer.appendChild(hiddenInput);
+					}
+				};
+
+				const uploadFiles = async (files) => {
+					errorEl.textContent = '';
+					const validFiles = files.filter(f => {
+						if (!ALLOWED_TYPES.includes(f.type)) {
+							errorEl.textContent = `Tipo no permitido: ${f.type}. Solo jpg/png/webp.`;
+							return false;
+						}
+						if (f.size > MAX_FILE_SIZE) {
+							errorEl.textContent = `Archivo muy grande: ${(f.size / 1024 / 1024).toFixed(2)}MB. Máx 5MB.`;
+							return false;
+						}
+						return true;
+					});
+
+					if (validFiles.length === 0) return;
+
+					uploadBtn.disabled = true;
+					let uploaded = 0;
+
+					for (const file of validFiles) {
+						statusEl.textContent = `Subiendo ${uploaded + 1}/${validFiles.length}...`;
+						try {
+							const signRes = await fetch('/api/cloudinary/sign', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ folder: 'fashionstore/products' }),
+							});
+							if (!signRes.ok) throw new Error('Error obteniendo firma');
+							const { timestamp, signature, apiKey, cloudName, folder } = await signRes.json();
+
+							const formData = new FormData();
+							formData.append('file', file);
+							formData.append('api_key', apiKey);
+							formData.append('timestamp', String(timestamp));
+							formData.append('signature', signature);
+							formData.append('folder', folder);
+
+							const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+								method: 'POST',
+								body: formData,
+							});
+							if (!uploadRes.ok) {
+								const err = await uploadRes.json().catch(() => ({}));
+								throw new Error(err?.error?.message || 'Error subiendo a Cloudinary');
+							}
+							const data = await uploadRes.json();
+							uploadedImages.push({ secure_url: data.secure_url, public_id: data.public_id });
+							uploaded++;
+							renderPreviews();
+						} catch (err) {
+							errorEl.textContent = err.message || 'Error subiendo imagen';
+						}
+					}
+
+					statusEl.textContent = uploaded > 0 ? `${uploaded} imagen(es) subida(s)` : '';
+					uploadBtn.disabled = false;
+				};
+
+				uploadBtn.addEventListener('click', () => input.click());
+				input.addEventListener('change', () => {
+					const files = input.files ? Array.from(input.files) : [];
+					if (files.length > 0) uploadFiles(files);
+					input.value = '';
+				});
+
+				dropzone.addEventListener('dragover', (e) => {
+					e.preventDefault();
+					dropzone.style.borderColor = '#111';
+				});
+				dropzone.addEventListener('dragleave', () => {
+					dropzone.style.borderColor = '#e5e7eb';
+				});
+				dropzone.addEventListener('drop', (e) => {
+					e.preventDefault();
+					dropzone.style.borderColor = '#e5e7eb';
+					const dt = e.dataTransfer;
+					if (!dt) return;
+					const files = Array.from(dt.files || []).filter((f) => ALLOWED_TYPES.includes(f.type));
+					if (files.length > 0) uploadFiles(files);
+				});
+			})();
+		</script>
+		</div>
+	</section>
+</AdminFSLayout>

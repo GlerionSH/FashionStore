@@ -1,0 +1,291 @@
+---
+import AdminFSLayout from '../../layouts/AdminFSLayout.astro';
+import { getSupabaseAdmin } from '../../lib/database/supabaseServer';
+import { formatPriceEURFromCents } from '../../lib/price';
+
+export const prerender = false;
+
+const sb = getSupabaseAdmin() as any;
+
+let error: string | null = null;
+
+type ReturnRow = {
+	id: string;
+	order_id: string;
+	user_id: string | null;
+	status: string;
+	reason: string | null;
+	requested_at: string;
+	reviewed_at: string | null;
+	reviewed_by: string | null;
+	refunded_at: string | null;
+	refund_method: string;
+	refund_total_cents: number;
+	stripe_refund_id: string | null;
+	notes: string | null;
+	fs_orders: {
+		id: string;
+		email: string | null;
+		total_cents: number;
+		paid_at: string | null;
+		stripe_payment_intent_id: string | null;
+	};
+	fs_return_items: {
+		id: string;
+		order_item_id: string;
+		qty: number;
+		line_total_cents: number;
+		fs_order_items: {
+			name: string | null;
+			size: string | null;
+		} | null;
+	}[];
+};
+
+const statusFilter = Astro.url.searchParams.get('status') ?? null;
+
+let query = sb
+	.from('fs_returns')
+	.select(`
+		id,
+		order_id,
+		user_id,
+		status,
+		reason,
+		requested_at,
+		reviewed_at,
+		reviewed_by,
+		refunded_at,
+		refund_method,
+		refund_total_cents,
+		stripe_refund_id,
+		notes,
+		fs_orders!inner(id,email,total_cents,paid_at,stripe_payment_intent_id),
+		fs_return_items(
+			id,
+			order_item_id,
+			qty,
+			line_total_cents,
+			fs_order_items(name,size)
+		)
+	`)
+	.order('requested_at', { ascending: false })
+	.limit(50);
+
+if (statusFilter) {
+	query = query.eq('status', statusFilter);
+}
+
+const { data: returnsData, error: returnsError } = await query;
+
+if (returnsError) {
+	error = returnsError.message || 'Error cargando devoluciones';
+}
+
+const returns: ReturnRow[] = returnsData ?? [];
+
+const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
+
+const statusColors: Record<string, string> = {
+	requested: 'background: #fef3c7; color: #92400e;',
+	approved: 'background: #dbeafe; color: #1e40af;',
+	rejected: 'background: #fee2e2; color: #991b1b;',
+	refunded: 'background: #d1fae5; color: #065f46;',
+	cancelled: 'background: #f3f4f6; color: #6b7280;',
+};
+---
+
+<AdminFSLayout title="Admin FashionStore - Devoluciones">
+	<section style="padding: 3rem 0 4rem;">
+		<div class="container">
+			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
+				<div>
+					<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.75rem;">
+						Devoluciones
+					</p>
+					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
+						Devoluciones
+					</h1>
+					<p class="helper-text" style="margin-top: 0.75rem; max-width: 640px;">
+						Gestiona solicitudes de devolución de clientes
+					</p>
+				</div>
+				<a class="btn-secondary" href="/admin-fs">Volver</a>
+			</div>
+
+			<!-- Filters -->
+			<div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+				<a href="/admin-fs/devoluciones" class={`btn-secondary ${!statusFilter ? 'active' : ''}`} style={!statusFilter ? 'background: #111; color: #fff;' : ''}>Todas</a>
+				<a href="/admin-fs/devoluciones?status=requested" class={`btn-secondary ${statusFilter === 'requested' ? 'active' : ''}`} style={statusFilter === 'requested' ? 'background: #111; color: #fff;' : ''}>Pendientes</a>
+				<a href="/admin-fs/devoluciones?status=approved" class={`btn-secondary ${statusFilter === 'approved' ? 'active' : ''}`} style={statusFilter === 'approved' ? 'background: #111; color: #fff;' : ''}>Aprobadas</a>
+				<a href="/admin-fs/devoluciones?status=refunded" class={`btn-secondary ${statusFilter === 'refunded' ? 'active' : ''}`} style={statusFilter === 'refunded' ? 'background: #111; color: #fff;' : ''}>Reembolsadas</a>
+				<a href="/admin-fs/devoluciones?status=rejected" class={`btn-secondary ${statusFilter === 'rejected' ? 'active' : ''}`} style={statusFilter === 'rejected' ? 'background: #111; color: #fff;' : ''}>Rechazadas</a>
+			</div>
+
+			{error && <div class="alert alert-error" style="margin-top: 1.5rem;">{error}</div>}
+
+			<div style="margin-top: 2rem;">
+				{returns.length === 0 && !returnsError && (
+					<p class="helper-text">No hay devoluciones</p>
+				)}
+
+				{returns.map((ret) => (
+					<div style="border: 1px solid #e5e7eb; padding: 1.5rem; margin-bottom: 1rem;" data-return-id={ret.id}>
+						<div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+							<div>
+								<div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+									<span style={`font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.25rem 0.5rem; ${statusColors[ret.status] || ''}`} data-status-badge>
+										{ret.status}
+									</span>
+									<span style="font-size: 0.75rem; color: #6b7280;">
+										{new Date(ret.requested_at).toLocaleString()}
+									</span>
+								</div>
+								<p style="font-size: 0.875rem; margin: 0.75rem 0 0;">
+									<strong>Pedido:</strong> <a href={`/admin-fs/pedidos/${ret.order_id}`} style="color: #111; text-decoration: underline;">{ret.order_id.slice(0, 8)}...</a>
+									<span style="margin-left: 1rem; color: #6b7280;">{ret.fs_orders.email ?? '-'}</span>
+								</p>
+								{ret.reason && (
+									<p style="font-size: 0.8125rem; color: #6b7280; margin: 0.5rem 0 0;">
+										<strong>Motivo:</strong> {ret.reason}
+									</p>
+								)}
+							</div>
+							<div style="text-align: right;">
+								<div style="font-size: 1.125rem; font-weight: 500;" data-refund-total>
+									{formatPrice(ret.refund_total_cents)}
+								</div>
+								<div style="font-size: 0.75rem; color: #6b7280;">
+									{ret.refund_method === 'stripe' ? 'Stripe' : 'Manual'}
+								</div>
+							</div>
+						</div>
+
+						<!-- Items -->
+						<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+							<div style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin-bottom: 0.5rem;">Articulos</div>
+							{ret.fs_return_items.map((item) => (
+								<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; font-size: 0.875rem;">
+									<div>
+										{item.fs_order_items?.name ?? 'Producto'}
+										{item.fs_order_items?.size && <span style="color: #6b7280;"> - Talla {item.fs_order_items.size}</span>}
+										<span style="color: #6b7280;"> x{item.qty}</span>
+									</div>
+									<div>{formatPrice(item.line_total_cents)}</div>
+								</div>
+							))}
+						</div>
+
+						<!-- Actions -->
+						{ret.status === 'requested' && (
+							<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+								<button type="button" class="btn-primary action-approve" data-return-id={ret.id} style="padding: 0.5rem 1rem;">
+									Aprobar
+								</button>
+								<button type="button" class="btn-secondary action-reject" data-return-id={ret.id} style="padding: 0.5rem 1rem;">
+									Rechazar
+								</button>
+							</div>
+						)}
+
+						{ret.status === 'approved' && (
+							<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+								<button type="button" class="btn-primary action-refund" data-return-id={ret.id} style="padding: 0.5rem 1rem;">
+									Ejecutar reembolso
+								</button>
+								<span style="font-size: 0.75rem; color: #6b7280;">
+									{ret.fs_orders.stripe_payment_intent_id ? 'Se intentará reembolso vía Stripe' : 'Reembolso manual'}
+								</span>
+							</div>
+						)}
+
+						{ret.status === 'refunded' && ret.stripe_refund_id && (
+							<div style="margin-top: 0.75rem; font-size: 0.75rem; color: #6b7280;">
+								Stripe Refund ID: {ret.stripe_refund_id}
+							</div>
+						)}
+
+						{ret.notes && (
+							<div style="margin-top: 0.75rem; font-size: 0.8125rem; color: #6b7280;">
+								<strong>Notas:</strong> {ret.notes}
+							</div>
+						)}
+
+						<div class="action-message" style="display: none; margin-top: 1rem; padding: 0.75rem; font-size: 0.875rem;"></div>
+					</div>
+				))}
+			</div>
+		</div>
+	</section>
+
+	<script>
+		const handleAction = async (returnId, action, endpoint) => {
+			const card = document.querySelector(`[data-return-id="${returnId}"]`);
+			if (!card) return;
+
+			const msgEl = card.querySelector('.action-message');
+			if (msgEl) {
+				msgEl.style.display = 'none';
+			}
+
+			try {
+				const res = await fetch(endpoint, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ action }),
+				});
+
+				const data = await res.json();
+
+				if (!res.ok) {
+					throw new Error(data.error || data.message || 'Error');
+				}
+
+				if (msgEl) {
+					msgEl.textContent = `Acción completada: ${data.status || action}`;
+					msgEl.style.display = 'block';
+					msgEl.style.background = '#d1fae5';
+					msgEl.style.color = '#065f46';
+				}
+
+				// Reload after short delay
+				setTimeout(() => window.location.reload(), 1000);
+			} catch (err) {
+				if (msgEl) {
+					msgEl.textContent = err.message || 'Error al procesar';
+					msgEl.style.display = 'block';
+					msgEl.style.background = '#fee2e2';
+					msgEl.style.color = '#991b1b';
+				}
+			}
+		};
+
+		// Approve
+		document.querySelectorAll('.action-approve').forEach((btn) => {
+			btn.addEventListener('click', () => {
+				const returnId = btn.dataset.returnId;
+				handleAction(returnId, 'approve', `/api/admin/returns/${returnId}/review`);
+			});
+		});
+
+		// Reject
+		document.querySelectorAll('.action-reject').forEach((btn) => {
+			btn.addEventListener('click', () => {
+				const returnId = btn.dataset.returnId;
+				if (confirm('¿Rechazar esta devolución?')) {
+					handleAction(returnId, 'reject', `/api/admin/returns/${returnId}/review`);
+				}
+			});
+		});
+
+		// Refund
+		document.querySelectorAll('.action-refund').forEach((btn) => {
+			btn.addEventListener('click', () => {
+				const returnId = btn.dataset.returnId;
+				if (confirm('¿Ejecutar el reembolso? Esta acción no se puede deshacer.')) {
+					handleAction(returnId, 'refund', `/api/admin/returns/${returnId}/refund`);
+				}
+			});
+		});
+	</script>
+</AdminFSLayout>

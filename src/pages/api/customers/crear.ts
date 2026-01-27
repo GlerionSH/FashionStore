@@ -1,33 +1,25 @@
 import type { APIRoute } from 'astro';
-import { supabase } from '../../../lib/database/supabase';
+import { createContact, searchContacts } from '../../../lib/services/contactService';
+import type { CreateContactDTO } from '../../../types/crm';
 
-export const POST: APIRoute = async ({ request, cookies }) => {
+export const prerender = false;
+
+export const POST: APIRoute = async ({ request }) => {
   try {
-    // Verificar autenticación
-    const token = cookies.get('sb-access-token')?.value;
-    
-    if (!token) {
+    // Validar Content-Type
+    const contentType = request.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
       return new Response(
-        JSON.stringify({ error: 'No autorizado' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Obtener datos del usuario autenticado
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Token inválido o expirado' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Content-Type debe ser application/json' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     // Obtener datos del cuerpo de la petición
     const body = await request.json();
-    const { nombre, correo_electronico, telefono, empresa, estado, notas, fecha_suscripcion } = body;
+    const { nombre, correo_electronico, telefono, empresa, estado, notas } = body;
 
-    // Validaciones
+    // Validaciones básicas
     if (!nombre || typeof nombre !== 'string' || nombre.trim().length < 2) {
       return new Response(
         JSON.stringify({ error: 'El nombre es requerido y debe tener al menos 2 caracteres' }),
@@ -35,70 +27,55 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    if (!correo_electronico || typeof correo_electronico !== 'string') {
-      return new Response(
-        JSON.stringify({ error: 'El correo electrónico es requerido' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+    // Validar email si se proporciona
+    if (correo_electronico) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(correo_electronico)) {
+        return new Response(
+          JSON.stringify({ error: 'El correo electrónico no es válido' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Verificar si ya existe un contacto con ese email
+      const searchResult = await searchContacts(correo_electronico.trim());
+      if (searchResult.success && searchResult.data.length > 0) {
+        const emailExists = searchResult.data.some(
+          (c: any) => c.email?.toLowerCase() === correo_electronico.trim().toLowerCase()
+        );
+        if (emailExists) {
+          return new Response(
+            JSON.stringify({ error: 'Ya existe un contacto con este correo electrónico' }),
+            { status: 409, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      }
     }
 
-    // Validar formato de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(correo_electronico)) {
-      return new Response(
-        JSON.stringify({ error: 'El correo electrónico no es válido' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Validar estado
-    const estadosValidos = ['activo', 'inactivo', 'prospecto', 'lead'];
-    if (estado && !estadosValidos.includes(estado)) {
-      return new Response(
-        JSON.stringify({ error: `El estado debe ser uno de: ${estadosValidos.join(', ')}` }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verificar si ya existe un cliente con ese correo para este usuario
-    const { data: clienteExistente, error: checkError } = await supabase
-      .from('clientes')
-      .select('id')
-      .eq('usuario_id', user.id)
-      .eq('correo_electronico', correo_electronico.trim())
-      .single();
-
-    if (clienteExistente) {
-      return new Response(
-        JSON.stringify({ error: 'Ya existe un cliente con este correo electrónico' }),
-        { status: 409, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Crear el cliente
-    const nuevoCliente = {
-      usuario_id: user.id,
-      nombre: nombre.trim(),
-      correo_electronico: correo_electronico.trim().toLowerCase(),
-      telefono: telefono?.trim() || null,
-      empresa: empresa?.trim() || null,
-      estado: estado || 'activo',
-      notas: notas?.trim() || null,
-      fecha_suscripcion: fecha_suscripcion || new Date().toISOString(),
+    // Mapear campos del formulario español al schema inglés
+    const contactData: CreateContactDTO = {
+      first_name: nombre.trim(),
+      email: correo_electronico?.trim().toLowerCase() || undefined,
+      phone: telefono?.trim() || undefined,
+      company_name: empresa?.trim() || undefined,
+      notes: notas?.trim() || undefined,
+      contact_type: 'customer', // Por defecto es cliente
+      status: estado === 'activo' ? 'active' : 
+              estado === 'inactivo' ? 'inactive' :
+              estado === 'prospecto' ? 'qualified' :
+              estado === 'lead' ? 'new' : 'active',
+      source: 'manual', // Agregado manualmente
     };
 
-    const { data: cliente, error: insertError } = await supabase
-      .from('clientes')
-      .insert(nuevoCliente as any)
-      .select()
-      .single();
+    // Crear el contacto usando el servicio
+    const result = await createContact(contactData);
 
-    if (insertError) {
-      console.error('Error al insertar cliente:', insertError);
+    if (!result.success) {
+      console.error('Error al crear contacto:', result.error);
       return new Response(
         JSON.stringify({ 
           error: 'Error al crear el cliente en la base de datos',
-          details: insertError.message 
+          details: result.error 
         }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
@@ -109,7 +86,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       JSON.stringify({
         success: true,
         message: 'Cliente creado exitosamente',
-        data: cliente
+        data: result.data
       }),
       { 
         status: 201, 

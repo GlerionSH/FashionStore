@@ -1,0 +1,435 @@
+---
+import StoreLayout from '../../../layouts/StoreLayout.astro';
+import { createClient } from '@supabase/supabase-js';
+import { formatPriceEURFromCents } from '../../../lib/price';
+
+export const prerender = false;
+
+type OrderRow = {
+	id: string;
+	created_at: string;
+	total_cents: number;
+	subtotal_cents: number;
+	discount_cents: number;
+	status: string;
+};
+
+type OrderItemRow = {
+	id: string;
+	product_id: string;
+	qty: number;
+	price_cents: number;
+	line_total_cents: number;
+	size?: string | null;
+	name?: string | null;
+	fs_products?: { name: string | null } | null;
+};
+
+type ReturnRow = {
+	id: string;
+	status: string;
+	reason: string | null;
+	requested_at: string;
+	refund_total_cents: number;
+	fs_return_items: { order_item_id: string; qty: number; line_total_cents: number }[];
+};
+
+const orderId = Astro.params.id;
+
+const token = Astro.cookies.get('sb-access-token')?.value;
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const anonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !anonKey) {
+	throw new Error('Supabase no está configurado');
+}
+
+const sb = createClient(supabaseUrl, anonKey, {
+	auth: { persistSession: false, autoRefreshToken: false },
+	global: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+});
+
+const { data: userData } = await sb.auth.getUser();
+const user = userData.user;
+
+if (!user) {
+	return Astro.redirect('/auth/login');
+}
+
+let error: string | null = null;
+let order: OrderRow | null = null;
+let items: OrderItemRow[] = [];
+let returns: ReturnRow[] = [];
+
+if (!orderId) {
+	error = 'Pedido invalido';
+} else {
+	const { data: orderData, error: orderError } = await (sb as any)
+		.from('fs_orders')
+		.select('id,created_at,subtotal_cents,discount_cents,total_cents,status,user_id')
+		.eq('id', orderId)
+		.eq('user_id', user.id)
+		.maybeSingle();
+
+	if (orderError) {
+		error = orderError.message || 'Error cargando pedido';
+	} else if (!orderData) {
+		error = 'Pedido no encontrado';
+	} else {
+		order = orderData as any;
+	}
+
+	if (order) {
+		const { data: itemsData, error: itemsError } = await (sb as any)
+			.from('fs_order_items')
+			.select('id,product_id,qty,price_cents,line_total_cents,size,name,fs_products(name)')
+			.eq('order_id', order.id)
+			.order('created_at', { ascending: true });
+
+		if (itemsError) {
+			error = itemsError.message || 'Error cargando items';
+		} else {
+			items = itemsData ?? [];
+		}
+
+		// Load existing returns for this order
+		const { data: returnsData } = await (sb as any)
+			.from('fs_returns')
+			.select('id,status,reason,requested_at,refund_total_cents,fs_return_items(order_item_id,qty,line_total_cents)')
+			.eq('order_id', order.id)
+			.eq('user_id', user.id)
+			.order('requested_at', { ascending: false });
+
+		returns = returnsData ?? [];
+	}
+}
+
+// Calculate already returned qty per item
+const returnedQtyMap = new Map<string, number>();
+for (const ret of returns) {
+	if (['requested', 'approved', 'refunded'].includes(ret.status)) {
+		for (const ri of ret.fs_return_items ?? []) {
+			const prev = returnedQtyMap.get(ri.order_item_id) ?? 0;
+			returnedQtyMap.set(ri.order_item_id, prev + ri.qty);
+		}
+	}
+}
+
+const canRequestReturn = order?.status === 'paid' && items.some(it => {
+	const returned = returnedQtyMap.get(it.id) ?? 0;
+	return it.qty - returned > 0;
+});
+
+const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
+---
+
+<StoreLayout title="Detalle de pedido - Fashion Store">
+	<!-- Breadcrumb -->
+	<div class="container" style="padding-top: 2rem;">
+		<nav style="font-size: 0.75rem; color: #9ca3af;">
+			<a href="/" style="transition: color 0.2s;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#9ca3af'">Home</a>
+			<span style="margin: 0 0.5rem;">/</span>
+			<a href="/cuenta" style="transition: color 0.2s;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#9ca3af'">Mi cuenta</a>
+			<span style="margin: 0 0.5rem;">/</span>
+			<a href="/cuenta/pedidos" style="transition: color 0.2s;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#9ca3af'">Pedidos</a>
+			<span style="margin: 0 0.5rem;">/</span>
+			<span style="color: #111;">Detalle</span>
+		</nav>
+	</div>
+
+	<section style="padding: 2rem 0 4rem;">
+		<div class="container">
+			{error && <div class="alert alert-error" style="margin-bottom: 1.5rem;">{error}</div>}
+
+			{order && (
+				<div>
+					<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 2rem; flex-wrap: wrap; margin-bottom: 3rem;">
+						<div>
+							<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
+								Pedido
+							</h1>
+							<p style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem; font-family: monospace;">
+								{order.id}
+							</p>
+						</div>
+						<span style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.375rem 0.75rem; background: #111; color: #fff;">
+							{order.status}
+						</span>
+					</div>
+
+					<!-- Order Info -->
+					<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem; padding: 2rem 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; margin-bottom: 3rem;">
+						<div>
+							<p style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin: 0 0 0.5rem;">Fecha</p>
+							<p style="font-size: 0.875rem; margin: 0;">{new Date(order.created_at).toLocaleDateString()}</p>
+						</div>
+						<div>
+							<p style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin: 0 0 0.5rem;">Subtotal</p>
+							<p style="font-size: 0.875rem; margin: 0;">{formatPrice(order.subtotal_cents)}</p>
+						</div>
+						<div>
+							<p style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin: 0 0 0.5rem;">Descuento</p>
+							<p style="font-size: 0.875rem; margin: 0;">{formatPrice(order.discount_cents)}</p>
+						</div>
+						<div>
+							<p style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin: 0 0 0.5rem;">Total</p>
+							<p style="font-size: 0.875rem; font-weight: 500; margin: 0;">{formatPrice(order.total_cents)}</p>
+						</div>
+					</div>
+
+					<!-- Items -->
+					<div>
+						<h2 style="font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 1.5rem;">
+							Articulos
+						</h2>
+
+						{items.length === 0 && (
+							<p style="font-size: 0.875rem; color: #9ca3af;">Este pedido no tiene articulos.</p>
+						)}
+
+						{items.length > 0 && (
+							<div>
+								<!-- Table Header -->
+								<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #111; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280;">
+									<div>Producto</div>
+									<div style="text-align: center;">Cantidad</div>
+									<div style="text-align: right;">Precio</div>
+									<div style="text-align: right;">Total</div>
+								</div>
+
+								<!-- Table Rows -->
+								{items.map((it) => (
+									<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 1rem; padding: 1.25rem 0; border-bottom: 1px solid #e5e7eb; align-items: center;">
+										<div>
+											<p style="font-size: 0.875rem; margin: 0;">{it.fs_products?.name ?? 'Producto'}</p>
+											{it.size && (
+												<p style="font-size: 0.6875rem; color: #6b7280; margin: 0.25rem 0 0; letter-spacing: 0.05em; text-transform: uppercase;">
+													Talla: {it.size}
+												</p>
+											)}
+											<p style="font-size: 0.6875rem; color: #9ca3af; margin: 0.25rem 0 0; font-family: monospace;">{it.product_id.slice(0, 8)}...</p>
+										</div>
+										<div style="text-align: center; font-size: 0.875rem;">{it.qty}</div>
+										<div style="text-align: right; font-size: 0.875rem;">{formatPrice(it.price_cents)}</div>
+										<div style="text-align: right; font-size: 0.875rem; font-weight: 500;">{formatPrice(it.line_total_cents)}</div>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
+
+					<!-- Existing Returns -->
+					{returns.length > 0 && (
+						<div style="margin-top: 3rem;">
+							<h2 style="font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 1.5rem;">
+								Devoluciones
+							</h2>
+							{returns.map((ret) => (
+								<div style="border: 1px solid #e5e7eb; padding: 1.25rem; margin-bottom: 1rem;">
+									<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+										<div>
+											<span style={`font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.25rem 0.5rem; ${ret.status === 'refunded' ? 'background: #d1fae5; color: #065f46;' : ret.status === 'rejected' ? 'background: #fee2e2; color: #991b1b;' : 'background: #fef3c7; color: #92400e;'}`}>
+												{ret.status}
+											</span>
+											<span style="font-size: 0.75rem; color: #6b7280; margin-left: 1rem;">
+												{new Date(ret.requested_at).toLocaleDateString()}
+											</span>
+										</div>
+										<div style="font-size: 0.875rem; font-weight: 500;">
+											{formatPrice(ret.refund_total_cents)}
+										</div>
+									</div>
+									{ret.reason && (
+										<p style="font-size: 0.8125rem; color: #6b7280; margin: 0.75rem 0 0;">
+											Motivo: {ret.reason}
+										</p>
+									)}
+								</div>
+							))}
+						</div>
+					)}
+
+					<!-- Request Return Button -->
+					{canRequestReturn && (
+						<div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e5e7eb;">
+							<button
+								type="button"
+								id="open-return-modal"
+								class="btn-secondary"
+								style="width: fit-content;"
+							>
+								Solicitar devolucion
+							</button>
+						</div>
+					)}
+
+					<!-- Back link -->
+					<div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #e5e7eb;">
+						<a href="/cuenta/pedidos" style="font-size: 0.8125rem; color: #111; text-decoration: underline;">
+							Volver a mis pedidos
+						</a>
+					</div>
+				</div>
+			)}
+		</div>
+	</section>
+
+	<!-- Return Modal -->
+	{canRequestReturn && (
+		<div id="return-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+			<div style="background: #fff; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; padding: 2rem;">
+				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+					<h3 style="font-size: 1rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
+						Solicitar devolucion
+					</h3>
+					<button type="button" id="close-return-modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0;">&times;</button>
+				</div>
+
+				<form id="return-form">
+					<div style="margin-bottom: 1.5rem;">
+						<label style="display: block; font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.5rem;">
+							Selecciona articulos a devolver
+						</label>
+						{items
+							.filter((it) => {
+								const returned = returnedQtyMap.get(it.id) ?? 0;
+								return it.qty - returned > 0;
+							})
+							.map((it) => {
+								const returned = returnedQtyMap.get(it.id) ?? 0;
+								const available = it.qty - returned;
+								const productName = it.name || it.fs_products?.name || 'Producto';
+								return (
+									<div style="display: flex; align-items: center; gap: 1rem; padding: 0.75rem; border: 1px solid #e5e7eb; margin-bottom: 0.5rem;" data-item-id={it.id}>
+										<input type="checkbox" class="return-item-check" data-item-id={it.id} data-max={available} />
+										<div style="flex: 1;">
+											<p style="font-size: 0.875rem; margin: 0;">{productName}</p>
+											{it.size && <p style="font-size: 0.6875rem; color: #6b7280; margin: 0.25rem 0 0;">Talla: {it.size}</p>}
+										</div>
+										<div style="display: flex; align-items: center; gap: 0.5rem;">
+											<label style="font-size: 0.75rem; color: #6b7280;">Cantidad:</label>
+											<select class="return-item-qty" data-item-id={it.id} style="padding: 0.375rem; border: 1px solid #e5e7eb; font-size: 0.875rem;" disabled>
+												{Array.from({ length: available }, (_, i) => i + 1).map((n) => (
+													<option value={n}>{n}</option>
+												))}
+											</select>
+											<span style="font-size: 0.75rem; color: #9ca3af;">/ {available}</span>
+										</div>
+									</div>
+								);
+							})}
+					</div>
+
+					<div style="margin-bottom: 1.5rem;">
+						<label for="return-reason" style="display: block; font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.5rem;">
+							Motivo (opcional)
+						</label>
+						<textarea id="return-reason" rows={3} style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; resize: vertical;"></textarea>
+					</div>
+
+					<div id="return-error" style="display: none; padding: 0.75rem; background: #fee2e2; color: #991b1b; font-size: 0.875rem; margin-bottom: 1rem;"></div>
+					<div id="return-success" style="display: none; padding: 0.75rem; background: #d1fae5; color: #065f46; font-size: 0.875rem; margin-bottom: 1rem;"></div>
+
+					<div style="display: flex; gap: 1rem;">
+						<button type="submit" id="return-submit" class="btn-primary" style="flex: 1;">Enviar solicitud</button>
+						<button type="button" id="cancel-return" class="btn-secondary">Cancelar</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	)}
+
+	<script define:vars={{ orderId }}>
+		const modal = document.getElementById('return-modal');
+		const openBtn = document.getElementById('open-return-modal');
+		const closeBtn = document.getElementById('close-return-modal');
+		const cancelBtn = document.getElementById('cancel-return');
+		const form = document.getElementById('return-form');
+		const errorEl = document.getElementById('return-error');
+		const successEl = document.getElementById('return-success');
+		const submitBtn = document.getElementById('return-submit');
+
+		if (modal && openBtn) {
+			openBtn.addEventListener('click', () => {
+				modal.style.display = 'flex';
+			});
+		}
+
+		const closeModal = () => {
+			if (modal) modal.style.display = 'none';
+		};
+
+		if (closeBtn) closeBtn.addEventListener('click', closeModal);
+		if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+		// Enable/disable qty select based on checkbox
+		document.querySelectorAll('.return-item-check').forEach((checkbox) => {
+			checkbox.addEventListener('change', (e) => {
+				const itemId = e.target.dataset.itemId;
+				const qtySelect = document.querySelector(`.return-item-qty[data-item-id="${itemId}"]`);
+				if (qtySelect) qtySelect.disabled = !e.target.checked;
+			});
+		});
+
+		// Form submit
+		if (form) {
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				if (errorEl) errorEl.style.display = 'none';
+				if (successEl) successEl.style.display = 'none';
+
+				const items = [];
+				document.querySelectorAll('.return-item-check:checked').forEach((checkbox) => {
+					const itemId = checkbox.dataset.itemId;
+					const qtySelect = document.querySelector(`.return-item-qty[data-item-id="${itemId}"]`);
+					if (qtySelect) {
+						items.push({ orderItemId: itemId, qty: parseInt(qtySelect.value, 10) });
+					}
+				});
+
+				if (items.length === 0) {
+					if (errorEl) {
+						errorEl.textContent = 'Selecciona al menos un articulo';
+						errorEl.style.display = 'block';
+					}
+					return;
+				}
+
+				const reason = document.getElementById('return-reason')?.value?.trim() || '';
+
+				if (submitBtn) submitBtn.disabled = true;
+
+				try {
+					const res = await fetch('/api/returns/request', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ orderId, reason, items }),
+					});
+
+					const data = await res.json();
+
+					if (!res.ok) {
+						throw new Error(data.message || data.error || 'Error al enviar solicitud');
+					}
+
+					if (successEl) {
+						successEl.textContent = 'Solicitud de devolucion enviada correctamente';
+						successEl.style.display = 'block';
+					}
+
+					setTimeout(() => {
+						window.location.reload();
+					}, 1500);
+				} catch (err) {
+					if (errorEl) {
+						errorEl.textContent = err.message || 'Error al enviar solicitud';
+						errorEl.style.display = 'block';
+					}
+				} finally {
+					if (submitBtn) submitBtn.disabled = false;
+				}
+			});
+		}
+	</script>
+</StoreLayout>
