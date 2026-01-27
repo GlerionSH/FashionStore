@@ -161,6 +161,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
 		if (rpcError) {
 			const msg = rpcError.message || 'Error en checkout';
+			console.error('[stripe/checkout] rpc fs_checkout_test error', {
+				code: (rpcError as any).code,
+				message: rpcError.message,
+				details: (rpcError as any).details,
+				hint: (rpcError as any).hint,
+			});
 
 			if ((rpcError as any).code === '42883' || msg.includes('does not exist')) {
 				return jsonError(500, 'RPC fs_checkout_test no existe en la base de datos.', { code: (rpcError as any).code, message: msg });
@@ -182,7 +188,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 				return jsonError(400, msg.replace(/^INACTIVE_PRODUCT:\s*/, ''), { message: msg });
 			}
 
-			return jsonError(500, msg, { code: (rpcError as any).code, message: msg });
+			return jsonError(500, msg, {
+				code: (rpcError as any).code,
+				message: msg,
+				details: (rpcError as any).details,
+				hint: (rpcError as any).hint,
+			});
 		}
 
 		const row: RpcResultRow | null = Array.isArray(data) ? (data[0] as any) : (data as any);

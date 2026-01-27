@@ -75,21 +75,20 @@ export const GET: APIRoute = async ({ url }) => {
 	);
 	const countPaid = paidOrders?.length ?? 0;
 
-	// Refunds: sum refund_total_cents of refunded returns in range
-	const { data: refundedReturns, error: refundsError } = await (adminSb as any)
-		.from('fs_returns')
+	const { data: refundedOrders, error: refundsError } = await (adminSb as any)
+		.from('fs_orders')
 		.select('refund_total_cents')
-		.eq('status', 'refunded')
-		.gte('refunded_at', startIso)
-		.lte('refunded_at', endIso);
+		.eq('status', 'paid')
+		.gte('paid_at', startIso)
+		.lte('paid_at', endIso);
 
 	if (refundsError) {
 		console.error('[admin/metrics/revenue] refunds error', refundsError);
 		return json(500, { error: 'refunds_load_failed' });
 	}
 
-	const refundsCents = (refundedReturns ?? []).reduce(
-		(sum: number, r: { refund_total_cents: number }) => sum + (r.refund_total_cents ?? 0),
+	const refundsCents = (refundedOrders ?? []).reduce(
+		(sum: number, o: { refund_total_cents: number }) => sum + (o.refund_total_cents ?? 0),
 		0
 	);
 

@@ -5,6 +5,8 @@ export const prerender = false;
 
 let error: string | null = null;
 
+const showResetBanner = Astro.url.searchParams.get('reset') === '1';
+
 const nextParam = Astro.url.searchParams.get('next');
 const safeNext =
 	nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/cuenta';
@@ -117,6 +119,11 @@ if (Astro.request.method === 'POST') {
 			{error && (
 				<div class="alert alert-error" style="margin-bottom: 1.5rem;">{error}</div>
 			)}
+			{showResetBanner && (
+				<div class="alert alert-success" style="margin-bottom: 1.5rem;">
+					Contraseña actualizada. Inicia sesión con la nueva.
+				</div>
+			)}
 
 			<form method="POST" style="display: grid; gap: 1.25rem;">
 				<div>
@@ -131,6 +138,12 @@ if (Astro.request.method === 'POST') {
 					Entrar
 				</button>
 			</form>
+
+			<div style="margin-top: 1rem; text-align: center; font-size: 0.8125rem;">
+				<a href="/auth/forgot-password" style="color: #111; text-decoration: underline;">
+					¿Olvidaste tu contraseña?
+				</a>
+			</div>
 
 			<div style="margin-top: 2rem; text-align: center; font-size: 0.8125rem;">
 				<p style="color: #6b7280; margin: 0 0 0.5rem;">

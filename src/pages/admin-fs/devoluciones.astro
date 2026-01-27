@@ -36,8 +36,12 @@ type ReturnRow = {
 		qty: number;
 		line_total_cents: number;
 		fs_order_items: {
+			qty?: number;
 			name: string | null;
 			size: string | null;
+			paid_unit_cents?: number | null;
+			paid_line_total_cents?: number | null;
+			line_total_cents?: number | null;
 		} | null;
 	}[];
 };
@@ -66,7 +70,7 @@ let query = sb
 			order_item_id,
 			qty,
 			line_total_cents,
-			fs_order_items(name,size)
+			fs_order_items(qty,name,size,paid_unit_cents,paid_line_total_cents,line_total_cents)
 		)
 	`)
 	.order('requested_at', { ascending: false })
@@ -171,7 +175,23 @@ const statusColors: Record<string, string> = {
 										{item.fs_order_items?.size && <span style="color: #6b7280;"> - Talla {item.fs_order_items.size}</span>}
 										<span style="color: #6b7280;"> x{item.qty}</span>
 									</div>
-									<div>{formatPrice(item.line_total_cents)}</div>
+									{(() => {
+										const oi: any = item.fs_order_items;
+										const orderQty = Number(oi?.qty ?? 0);
+										const paidUnit = oi?.paid_unit_cents;
+										const paidLine = oi?.paid_line_total_cents;
+										const baseLine = oi?.line_total_cents;
+										let unit = 0;
+										if (Number.isFinite(paidUnit)) unit = Math.trunc(paidUnit);
+										else if (Number.isFinite(paidLine) && orderQty > 0) unit = Math.round(Number(paidLine) / orderQty);
+										else if (Number.isFinite(baseLine) && orderQty > 0) unit = Math.floor(Number(baseLine) / orderQty);
+										return (
+											<div style="display: flex; align-items: baseline; gap: 1rem;">
+												<span style="font-size: 0.75rem; color: #6b7280;">{formatPrice(unit)} / ud</span>
+												<span>{formatPrice(item.line_total_cents)}</span>
+											</div>
+										);
+									})()}
 								</div>
 							))}
 						</div>
@@ -219,11 +239,11 @@ const statusColors: Record<string, string> = {
 	</section>
 
 	<script>
-		const handleAction = async (returnId, action, endpoint) => {
-			const card = document.querySelector(`[data-return-id="${returnId}"]`);
+		const handleAction = async (returnId: string, action: string, endpoint: string) => {
+			const card = document.querySelector<HTMLElement>(`[data-return-id="${returnId}"]`);
 			if (!card) return;
 
-			const msgEl = card.querySelector('.action-message');
+			const msgEl = card.querySelector<HTMLElement>('.action-message');
 			if (msgEl) {
 				msgEl.style.display = 'none';
 			}
@@ -250,9 +270,9 @@ const statusColors: Record<string, string> = {
 
 				// Reload after short delay
 				setTimeout(() => window.location.reload(), 1000);
-			} catch (err) {
+			} catch (err: any) {
 				if (msgEl) {
-					msgEl.textContent = err.message || 'Error al procesar';
+					msgEl.textContent = err?.message || 'Error al procesar';
 					msgEl.style.display = 'block';
 					msgEl.style.background = '#fee2e2';
 					msgEl.style.color = '#991b1b';
@@ -261,17 +281,19 @@ const statusColors: Record<string, string> = {
 		};
 
 		// Approve
-		document.querySelectorAll('.action-approve').forEach((btn) => {
+		document.querySelectorAll<HTMLButtonElement>('.action-approve').forEach((btn) => {
 			btn.addEventListener('click', () => {
 				const returnId = btn.dataset.returnId;
+				if (!returnId) return;
 				handleAction(returnId, 'approve', `/api/admin/returns/${returnId}/review`);
 			});
 		});
 
 		// Reject
-		document.querySelectorAll('.action-reject').forEach((btn) => {
+		document.querySelectorAll<HTMLButtonElement>('.action-reject').forEach((btn) => {
 			btn.addEventListener('click', () => {
 				const returnId = btn.dataset.returnId;
+				if (!returnId) return;
 				if (confirm('¿Rechazar esta devolución?')) {
 					handleAction(returnId, 'reject', `/api/admin/returns/${returnId}/review`);
 				}
@@ -279,9 +301,10 @@ const statusColors: Record<string, string> = {
 		});
 
 		// Refund
-		document.querySelectorAll('.action-refund').forEach((btn) => {
+		document.querySelectorAll<HTMLButtonElement>('.action-refund').forEach((btn) => {
 			btn.addEventListener('click', () => {
 				const returnId = btn.dataset.returnId;
+				if (!returnId) return;
 				if (confirm('¿Ejecutar el reembolso? Esta acción no se puede deshacer.')) {
 					handleAction(returnId, 'refund', `/api/admin/returns/${returnId}/refund`);
 				}

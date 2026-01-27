@@ -42,7 +42,7 @@ export const GET: APIRoute = async ({ url }) => {
 				order_item_id,
 				qty,
 				line_total_cents,
-				fs_order_items(id,product_id,qty,price_cents,line_total_cents,size,name)
+				fs_order_items(id,product_id,qty,price_cents,line_total_cents,paid_unit_cents,paid_line_total_cents,size,name)
 			)
 		`)
 		.order('requested_at', { ascending: false })

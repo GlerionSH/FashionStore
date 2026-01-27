@@ -98,7 +98,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 	// 2. Load order items
 	const { data: orderItems, error: itemsError } = await adminSb
 		.from('fs_order_items')
-		.select('id,qty,price_cents,line_total_cents,name,size')
+		.select('id,qty,price_cents,line_total_cents,paid_unit_cents,paid_line_total_cents,name,size')
 		.eq('order_id', orderId);
 
 	if (itemsError) {
@@ -151,9 +151,20 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 			});
 		}
 
-		// Calculate proportional refund (line_total / qty * requested_qty)
-		const unitPrice = Math.floor(orderItem.line_total_cents / orderItem.qty);
-		const lineTotalCents = unitPrice * reqItem.qty;
+		let lineTotalCents = 0;
+		const baseQty = Number(orderItem.qty ?? 0);
+		const reqQty = Number(reqItem.qty ?? 0);
+		const paidLineTotal = (orderItem as any).paid_line_total_cents;
+		const paidUnit = (orderItem as any).paid_unit_cents;
+
+		if (Number.isFinite(paidLineTotal) && baseQty > 0) {
+			lineTotalCents = Math.round((Number(paidLineTotal) * reqQty) / baseQty);
+		} else if (Number.isFinite(paidUnit)) {
+			lineTotalCents = Math.round(Number(paidUnit) * reqQty);
+		} else {
+			const unitPrice = Math.floor(orderItem.line_total_cents / orderItem.qty);
+			lineTotalCents = unitPrice * reqQty;
+		}
 
 		returnItemsToInsert.push({
 			order_item_id: reqItem.orderItemId,

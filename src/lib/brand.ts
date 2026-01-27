@@ -34,6 +34,11 @@ export const getBrand = (): BrandConfig => {
 		return { name, logoUrl: envLogo };
 	}
 
+	const fallbackLogo2 = '/logo2.png';
+	if (publicFileExists(fallbackLogo2)) {
+		return { name, logoUrl: fallbackLogo2 };
+	}
+
 	const fallbackLogo = '/logo.png';
 	if (publicFileExists(fallbackLogo)) {
 		return { name, logoUrl: fallbackLogo };

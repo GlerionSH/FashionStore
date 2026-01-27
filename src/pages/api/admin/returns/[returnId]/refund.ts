@@ -22,10 +22,11 @@ export const POST: APIRoute = async ({ params }) => {
 		return json(400, { error: 'returnId_required' });
 	}
 
-	// Load return with order info
 	const { data: ret, error: loadError } = await (adminSb as any)
 		.from('fs_returns')
-		.select('id,status,order_id,refund_total_cents,fs_orders(email,stripe_payment_intent_id)')
+		.select(
+			'id,status,order_id,refund_total_cents,fs_orders(email,stripe_payment_intent_id),fs_return_items(id,order_item_id,qty,line_total_cents,fs_order_items(qty,paid_unit_cents,paid_line_total_cents,line_total_cents))'
+		)
 		.eq('id', returnId)
 		.maybeSingle();
 
@@ -47,10 +48,47 @@ export const POST: APIRoute = async ({ params }) => {
 		return json(400, { error: 'return_not_approved', current_status: ret.status });
 	}
 
-	const amountCents = ret.refund_total_cents;
+	const items: any[] = Array.isArray((ret as any).fs_return_items) ? (ret as any).fs_return_items : [];
+	let amountCents = 0;
+	const updates: { id: string; line_total_cents: number }[] = [];
+
+	for (const ri of items) {
+		const oi = ri?.fs_order_items;
+		const orderQty = Number(oi?.qty ?? 0);
+		const returnQty = Number(ri?.qty ?? 0);
+		if (!ri?.id || returnQty <= 0) continue;
+
+		let line = 0;
+		const paidLine = oi?.paid_line_total_cents;
+		const paidUnit = oi?.paid_unit_cents;
+		const baseLine = oi?.line_total_cents;
+
+		if (Number.isFinite(paidLine) && orderQty > 0) {
+			line = Math.round((Number(paidLine) * returnQty) / orderQty);
+		} else if (Number.isFinite(paidUnit)) {
+			line = Math.round(Number(paidUnit) * returnQty);
+		} else if (Number.isFinite(baseLine) && orderQty > 0) {
+			line = Math.floor(Number(baseLine) / orderQty) * returnQty;
+		}
+
+		amountCents += Math.max(0, Math.trunc(line));
+		if (Number.isFinite(line) && Number(ri.line_total_cents) !== Math.trunc(line)) {
+			updates.push({ id: ri.id, line_total_cents: Math.max(0, Math.trunc(line)) });
+		}
+	}
+
 	if (!amountCents || amountCents <= 0) {
 		return json(400, { error: 'no_refund_amount' });
 	}
+
+	for (const u of updates) {
+		await (adminSb as any).from('fs_return_items').update({ line_total_cents: u.line_total_cents }).eq('id', u.id);
+	}
+
+	await (adminSb as any)
+		.from('fs_returns')
+		.update({ refund_total_cents: amountCents })
+		.eq('id', returnId);
 
 	const stripeSecretKey = getEnv('STRIPE_SECRET_KEY');
 	const paymentIntentId = ret.fs_orders?.stripe_payment_intent_id;
@@ -89,6 +127,7 @@ export const POST: APIRoute = async ({ params }) => {
 			refunded_at: new Date().toISOString(),
 			refund_method: refundMethod,
 			stripe_refund_id: stripeRefundId,
+			refund_total_cents: amountCents,
 		})
 		.eq('id', returnId);
 
