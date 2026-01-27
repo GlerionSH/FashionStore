@@ -1,4 +1,6 @@
 import { getEnv } from '../env';
+import { renderBaseEmail } from '../email/templates/base';
+import { escapeHtml, formatEURFromCents, sendBrevoEmail } from './brevoEmail';
 
 type OrderRow = {
 	id: string;
@@ -21,17 +23,6 @@ type OrderItemRow = {
 	line_total_cents: number;
 };
 
-const formatEURFromCents = (cents: number) =>
-	new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format((cents || 0) / 100);
-
-const escapeHtml = (s: string) =>
-	s
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&#039;');
-
 const buildOrderPaidHtml = (order: OrderRow, items: OrderItemRow[], invoiceUrl?: string | null) => {
 	const rows = items
 		.map((it) => {
@@ -45,79 +36,38 @@ const buildOrderPaidHtml = (order: OrderRow, items: OrderItemRow[], invoiceUrl?:
 		})
 		.join('');
 
-	const invoiceBlock = invoiceUrl
-		? `<p style="margin-top:24px;">
-<a href="${escapeHtml(invoiceUrl)}" style="display:inline-block; padding:10px 14px; background:#111; color:#fff; text-decoration:none; font-size:14px; letter-spacing:0.02em;">Descargar factura (PDF)</a>
-</p>`
-		: '';
+	const bodyHtml = `
+		<h2 style="margin:0 0 12px; font-size:18px; font-weight:600;">Pago confirmado</h2>
+		<p style="margin:0 0 12px; color:#374151; font-size:14px; line-height:1.6;">
+			Gracias por tu compra. Hemos recibido tu pago correctamente.
+		</p>
+		<p style="margin:0; color:#111; font-size:14px; line-height:1.6;">
+			<strong>ID pedido:</strong> ${escapeHtml(order.id)}
+		</p>
 
-	return `<!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-</head>
-<body style="font-family: Arial, sans-serif; color:#111;">
-<h2>Pago confirmado</h2>
-<p>Gracias por tu compra. Hemos recibido tu pago correctamente.</p>
+		<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse; margin-top:12px;">
+			<thead>
+				<tr>
+					<th align="left" style="border-bottom:1px solid #eee; padding:8px 0; font-size:12px; color:#6b7280; letter-spacing:0.12em; text-transform:uppercase;">Producto</th>
+					<th align="center" style="border-bottom:1px solid #eee; padding:8px 0; font-size:12px; color:#6b7280; letter-spacing:0.12em; text-transform:uppercase;">Qty</th>
+					<th align="right" style="border-bottom:1px solid #eee; padding:8px 0; font-size:12px; color:#6b7280; letter-spacing:0.12em; text-transform:uppercase;">Precio</th>
+					<th align="right" style="border-bottom:1px solid #eee; padding:8px 0; font-size:12px; color:#6b7280; letter-spacing:0.12em; text-transform:uppercase;">Total</th>
+				</tr>
+			</thead>
+			<tbody>
+				${rows}
+			</tbody>
+		</table>
 
-<h3>Pedido</h3>
-<p><strong>ID:</strong> ${escapeHtml(order.id)}</p>
+		<p style="margin-top:16px;"><strong>Total:</strong> ${escapeHtml(formatEURFromCents(order.total_cents))}</p>
+	`;
 
-<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-<thead>
-<tr>
-<th align="left" style="border-bottom:1px solid #eee; padding:8px 0;">Producto</th>
-<th align="center" style="border-bottom:1px solid #eee; padding:8px 0;">Qty</th>
-<th align="right" style="border-bottom:1px solid #eee; padding:8px 0;">Precio</th>
-<th align="right" style="border-bottom:1px solid #eee; padding:8px 0;">Total</th>
-</tr>
-</thead>
-<tbody>
-${rows}
-</tbody>
-</table>
-
-<p style="margin-top:16px;"><strong>Total:</strong> ${escapeHtml(formatEURFromCents(order.total_cents))}</p>
-${invoiceBlock}
-</body>
-</html>`;
-};
-
-const sendBrevoEmail = async ({
-	to,
-	subject,
-	html,
-}: {
-	to: string;
-	subject: string;
-	html: string;
-}) => {
-	const apiKey = getEnv('BREVO_API_KEY');
-	console.info('[brevo] hasKey', Boolean(apiKey), 'prefix', apiKey?.slice(0, 4));
-	if (!apiKey) throw new Error('BREVO_API_KEY missing');
-
-	const fromEmail = getEnv('EMAIL_FROM_EMAIL') ?? 'no-reply@brevo.com';
-	const fromName = getEnv('EMAIL_FROM_NAME') ?? 'Fashion Store';
-
-	const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			'api-key': apiKey,
-		},
-		body: JSON.stringify({
-			sender: { name: fromName, email: fromEmail },
-			to: [{ email: to }],
-			subject,
-			htmlContent: html,
-		}),
+	return renderBaseEmail({
+		title: 'Pedido pagado',
+		preheader: 'Pago confirmado. Gracias por tu compra.',
+		bodyHtml,
+		cta: invoiceUrl ? { label: 'Descargar factura (PDF)', url: invoiceUrl } : undefined,
 	});
-
-	if (!response.ok) {
-		const text = await response.text();
-		throw new Error(`Brevo error ${response.status}: ${text}`);
-	}
 };
 
 export const sendOrderPaidEmails = async (order: OrderRow, items: OrderItemRow[], stripeSessionId?: string) => {

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getSupabaseAdmin } from '../../../../../lib/database/supabaseServer';
+import { sendReturnReviewedEmail } from '../../../../../lib/services/returnEmail';
 
 export const prerender = false;
 
@@ -33,10 +34,12 @@ export const POST: APIRoute = async ({ params, request }) => {
 		return json(400, { error: 'action_must_be_approve_or_reject' });
 	}
 
-	// Load return
+	// Load return (with order email + items for email)
 	const { data: ret, error: loadError } = await (adminSb as any)
 		.from('fs_returns')
-		.select('id,status')
+		.select(
+			'id,order_id,status,reason,notes,requested_at,fs_orders(id,email),fs_return_items(qty,line_total_cents,fs_order_items(name,size))'
+		)
 		.eq('id', returnId)
 		.maybeSingle();
 
@@ -68,6 +71,44 @@ export const POST: APIRoute = async ({ params, request }) => {
 	if (updateError) {
 		console.error('[admin/returns/review] update error', updateError);
 		return json(500, { error: 'return_update_failed' });
+	}
+
+	// Send email (non-fatal). Dedupe is enforced by status transition requested -> (approved|rejected).
+	try {
+		const to = ret.fs_orders?.email ?? null;
+		if (to) {
+			const itemsForEmail = (ret.fs_return_items ?? []).map((ri: any) => ({
+				name: ri.fs_order_items?.name ?? 'Producto',
+				size: ri.fs_order_items?.size ?? null,
+				qty: ri.qty,
+				line_total_cents: ri.line_total_cents,
+			}));
+
+			await sendReturnReviewedEmail({
+				to,
+				ret: {
+					id: ret.id,
+					order_id: ret.order_id,
+					status: newStatus,
+					reason: ret.reason ?? null,
+					notes: notes?.trim() || null,
+				},
+				items: itemsForEmail,
+				order: { id: ret.order_id, email: to },
+				action: action as any,
+				reason: action === 'reject' ? (notes?.trim() || null) : null,
+			});
+
+			const { error: flagError } = await (adminSb as any)
+				.from('fs_returns')
+				.update({ email_sent_reviewed_at: new Date().toISOString() })
+				.eq('id', returnId);
+			if (flagError) {
+				console.error('[admin/returns/review] email flag update error (non-fatal)', flagError);
+			}
+		}
+	} catch (emailErr) {
+		console.error('[admin/returns/review] email error (non-fatal)', emailErr);
 	}
 
 	console.info('[admin/returns/review]', { returnId, action, newStatus });

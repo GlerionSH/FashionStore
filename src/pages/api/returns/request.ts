@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { createClient } from '@supabase/supabase-js';
 import { getEnv } from '../../../lib/env';
+import { sendReturnRequestedEmail } from '../../../lib/services/returnEmail';
 
 export const prerender = false;
 
@@ -97,7 +98,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 	// 2. Load order items
 	const { data: orderItems, error: itemsError } = await adminSb
 		.from('fs_order_items')
-		.select('id,qty,price_cents,line_total_cents')
+		.select('id,qty,price_cents,line_total_cents,name,size')
 		.eq('order_id', orderId);
 
 	if (itemsError) {
@@ -197,6 +198,47 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 	}
 
 	console.info('[returns/request] created', { returnId: newReturn.id, orderId, userId: user.id });
+
+	// Send email (non-fatal). If migration 013_return_email_flags.sql is applied, we also set email_sent_requested_at.
+	try {
+		const to = order.email;
+		if (to) {
+			const itemsForEmail = returnItemsToInsert.map((ri) => {
+				const oi: any = orderItemsMap.get(ri.order_item_id);
+				return {
+					name: oi?.name ?? 'Producto',
+					size: oi?.size ?? null,
+					qty: ri.qty,
+					line_total_cents: ri.line_total_cents,
+				};
+			});
+
+			await sendReturnRequestedEmail({
+				to,
+				ret: {
+					id: newReturn.id,
+					order_id: orderId,
+					status: 'requested',
+					reason: reason?.trim() || null,
+					requested_at: new Date().toISOString(),
+				},
+				items: itemsForEmail,
+				order: { id: orderId, email: to },
+			});
+
+			const { error: flagError } = await adminSb
+				.from('fs_returns')
+				.update({ email_sent_requested_at: new Date().toISOString() })
+				.eq('id', newReturn.id);
+
+			if (flagError) {
+				// Non-fatal; will happen if migration not applied.
+				console.error('[returns/request] email flag update error (non-fatal)', flagError);
+			}
+		}
+	} catch (emailErr) {
+		console.error('[returns/request] email error (non-fatal)', emailErr);
+	}
 
 	return json(200, {
 		ok: true,

@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getSupabaseAdmin } from '../../../../../lib/database/supabaseServer';
 import { getEnv } from '../../../../../lib/env';
+import { sendReturnRefundedEmail } from '../../../../../lib/services/returnEmail';
 
 export const prerender = false;
 
@@ -24,7 +25,7 @@ export const POST: APIRoute = async ({ params }) => {
 	// Load return with order info
 	const { data: ret, error: loadError } = await (adminSb as any)
 		.from('fs_returns')
-		.select('id,status,order_id,refund_total_cents,fs_orders(stripe_payment_intent_id)')
+		.select('id,status,order_id,refund_total_cents,fs_orders(email,stripe_payment_intent_id)')
 		.eq('id', returnId)
 		.maybeSingle();
 
@@ -97,6 +98,38 @@ export const POST: APIRoute = async ({ params }) => {
 	}
 
 	// The trigger will recalculate refund_total_cents on fs_orders
+
+	// Send email (non-fatal). If migration 013_return_email_flags.sql is applied, we also set email_sent_refunded_at.
+	try {
+		const to = ret.fs_orders?.email ?? null;
+		if (to) {
+			await sendReturnRefundedEmail({
+				to,
+				ret: {
+					id: ret.id,
+					order_id: ret.order_id,
+					status: 'refunded',
+					refund_total_cents: amountCents,
+					refund_method: refundMethod,
+				},
+				order: { id: ret.order_id, email: to },
+				amount_cents: amountCents,
+				method: refundMethod as any,
+			});
+
+			const { error: flagError } = await (adminSb as any)
+				.from('fs_returns')
+				.update({ email_sent_refunded_at: new Date().toISOString() })
+				.eq('id', returnId);
+
+			if (flagError) {
+				// Non-fatal; will happen if migration not applied.
+				console.error('[admin/returns/refund] email flag update error (non-fatal)', flagError);
+			}
+		}
+	} catch (emailErr) {
+		console.error('[admin/returns/refund] email error (non-fatal)', emailErr);
+	}
 
 	console.info('[admin/returns/refund] completed', { returnId, refundMethod, amountCents });
 

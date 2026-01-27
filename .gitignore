@@ -13,8 +13,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# environment variables
+# environment variables (IMPORTANT)
 .env
+.env.*
+.env.local
 .env.production
 
 # macOS-specific files
