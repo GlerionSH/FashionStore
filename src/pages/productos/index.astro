@@ -3,8 +3,10 @@ import StoreLayout from '../../layouts/StoreLayout.astro';
 import { supabase } from '../../lib/supabase';
 import AddToCartButton from '../../components/islands/AddToCartButton.tsx';
 import CartPanel from '../../components/islands/CartPanel.tsx';
+import FlashOfferModal from '../../components/FlashOfferModal.astro';
 import { applyPercentDiscountCents, getActiveFlashOffer } from '../../lib/flashOffer';
 import { formatPriceEURFromCents } from '../../lib/price';
+import { resolveHomeImage } from '../../lib/brand';
 
 type CategoryRow = {
 	id: string;
@@ -65,36 +67,39 @@ const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 
 const activeOffer = await getActiveFlashOffer(sb);
 const discountPercent = activeOffer?.discount_percent ?? 0;
+
+const productsHeroImg = resolveHomeImage('PUBLIC_PRODUCTS_HERO_URL', '/banner.png');
 ---
 
 <StoreLayout title="Productos - Fashion Store">
-	<!-- Header -->
-	<section style="padding: 3rem 0 2rem; border-bottom: 1px solid #e5e7eb;">
-		<div class="container">
-			<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 1rem;">
-				Catalogo
-			</p>
-			<h1 style="font-size: 2.25rem; font-weight: 300; letter-spacing: -0.02em; margin: 0;">
-				Productos
-			</h1>
-			<p style="font-size: 0.875rem; color: #6b7280; margin-top: 1rem; max-width: 640px;">
-				Explora el catalogo completo. Filtra por categoria o ordena la lista.
-			</p>
-		</div>
+	<section class="relative h-36 md:h-44 overflow-hidden border-b border-gray-200 bg-gray-100">
+		{productsHeroImg ? (
+			<>
+				<div
+					aria-hidden="true"
+					class="absolute inset-0 -m-6 bg-center bg-no-repeat bg-cover blur-xl opacity-60 scale-110"
+					style={`background-image: url('${productsHeroImg}')`}
+				></div>
+				<img
+					src={productsHeroImg}
+					alt="Banner"
+					class="relative z-10 h-full w-full object-contain object-center"
+					loading="eager"
+				/>
+			</>
+		) : (
+			<div class="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200"></div>
+		)}
 	</section>
 
 	<section style="padding: 2rem 0 4rem;">
 		<div class="container">
 			<!-- Filters + Sort -->
 			<div style="display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2rem;">
-				<div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+				<div class="filters-chips">
 					<a
 						href="/productos"
-						style={
-							selectedCategory
-								? 'display:inline-flex;align-items:center;justify-content:center;padding:0.625rem 1rem;border:1px solid #e5e7eb;font-size:0.6875rem;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;color:#111;transition:background 0.2s,border-color 0.2s;'
-								: 'display:inline-flex;align-items:center;justify-content:center;padding:0.625rem 1rem;border:1px solid #111;background:#111;color:#fff;font-size:0.6875rem;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;'
-						}
+						class={selectedCategory ? 'chip chip--inactive fx-hover' : 'chip chip--active fx-hover'}
 					>
 						Todos
 					</a>
@@ -103,13 +108,7 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 						return (
 							<a
 								href={`/productos?cat=${encodeURIComponent(category.slug)}`}
-								style={
-									active
-										? 'display:inline-flex;align-items:center;justify-content:center;padding:0.625rem 1rem;border:1px solid #111;background:#111;color:#fff;font-size:0.6875rem;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;'
-										: 'display:inline-flex;align-items:center;justify-content:center;padding:0.625rem 1rem;border:1px solid #e5e7eb;font-size:0.6875rem;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;color:#111;transition:border-color 0.2s;'
-								}
-								onmouseover={!active ? "this.style.borderColor='#111'" : undefined}
-								onmouseout={!active ? "this.style.borderColor='#e5e7eb'" : undefined}
+								class={active ? 'chip chip--active fx-hover' : 'chip chip--inactive fx-hover'}
 							>
 								{category.name}
 							</a>
@@ -117,13 +116,13 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 					})}
 				</div>
 
-				<div style="display: flex; align-items: center; gap: 0.75rem;">
+				<div class="sort-row">
 					<label for="sort" style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #6b7280;">
 						Ordenar por
 					</label>
 					<select
 						id="sort"
-						style="padding: 0.625rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.8125rem; background: #fff;"
+						class="premium-select fx-hover"
 					>
 						<option value="relevance">Relevancia</option>
 						<option value="price-asc">Precio asc</option>
@@ -157,26 +156,26 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 							data-index={String(idx)}
 							data-price={String(product.price_cents)}
 							data-stock={String(product.stock)}
-							style="display: flex; flex-direction: column;"
+							class="product-card fx-card"
 						>
 							<div style="margin-bottom: 1rem;">
 								<a href={detailHref} style="display: block; color: inherit; text-decoration: none;">
-									{imageUrl ? (
-										<img
-											src={imageUrl}
-											alt={product.name}
-											loading="lazy"
-											style="width: 100%; aspect-ratio: 3/4; object-fit: cover; background: #f5f5f5;"
-										/>
-									) : (
-										<div
-											style="width: 100%; aspect-ratio: 3/4; background: #f5f5f5; display: flex; align-items: center; justify-content: center;"
-										>
-											<span style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af;">
-												Imagen no disponible
-											</span>
-										</div>
+									<div class="fx-img-wrap product-card__image-wrap">
+										{imageUrl ? (
+											<img
+												src={imageUrl}
+												alt={product.name}
+												loading="lazy"
+												class="fx-img-zoom"
+											/>
+										) : (
+											<div class="product-card__image-empty">
+												<span class="product-card__image-empty-text">
+													Imagen no disponible
+												</span>
+											</div>
 									)}
+									</div>
 								</a>
 							</div>
 
@@ -276,4 +275,83 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 	</script>
 
 	<CartPanel client:only="preact" />
+	<FlashOfferModal />
 </StoreLayout>
+
+<style>
+	.filters-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+	}
+
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.625rem 1rem;
+		border-radius: 999px;
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		border: 1px solid #e5e7eb;
+		color: #111;
+		background: #fff;
+	}
+
+	.chip--active {
+		border-color: #111;
+		background: #111;
+		color: #fff;
+	}
+
+	.chip--inactive {
+		border-color: #e5e7eb;
+		background: #fff;
+		color: #111;
+	}
+
+	.sort-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.premium-select {
+		padding: 0.625rem 0.875rem;
+		border: 1px solid #e5e7eb;
+		border-radius: 999px;
+		font-size: 0.8125rem;
+		background: #fff;
+		color: #111;
+		appearance: none;
+	}
+
+	.premium-select:focus {
+		outline: none;
+		border-color: #111;
+	}
+
+	.product-card__image-wrap {
+		aspect-ratio: 3 / 4;
+	}
+
+	.product-card__image-empty {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #f5f5f5;
+	}
+
+	.product-card__image-empty-text {
+		font-size: 0.6875rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: #9ca3af;
+	}
+
+
+</style>

@@ -2,12 +2,145 @@
 import { getBrand } from '../lib/brand';
 
 const brand = getBrand();
+const currentYear = new Date().getFullYear();
 ---
 
-<footer style="border-top: 1px solid #e5e7eb; margin-top: 4rem; padding: 2rem 0;">
-	<div class="container" style="text-align: center;">
-		<p style="font-size: 0.75rem; color: #9ca3af; letter-spacing: 0.05em; text-transform: uppercase;">
-			{brand.name}
-		</p>
+<footer class="store-footer">
+	<div class="container">
+		<div class="footer-grid">
+			<div class="footer-col">
+				<h4 class="footer-title">{brand.name}</h4>
+				<p class="footer-text">
+					Moda atemporal con calidad y elegancia. Piezas diseñadas para el dia a dia.
+				</p>
+			</div>
+
+			<div class="footer-col">
+				<h4 class="footer-title">Ayuda</h4>
+				<ul class="footer-links">
+					<li><a href="/envios">Envios</a></li>
+					<li><a href="/devoluciones">Devoluciones</a></li>
+					<li><a href="/contacto">Contacto</a></li>
+					<li><a href="/terminos">Terminos y condiciones</a></li>
+				</ul>
+			</div>
+
+			<div class="footer-col">
+				<h4 class="footer-title">Contacto</h4>
+				<ul class="footer-links footer-contact">
+					<li>info@fashionstore.com</li>
+					<li>Cadiz, Espana</li>
+					<li>Lun - Vie: 10:00 - 19:00</li>
+				</ul>
+			</div>
+
+			<div class="footer-col">
+				<h4 class="footer-title">Social</h4>
+				<ul class="footer-links">
+					<li><a href="#" target="_blank" rel="noopener">Instagram</a></li>
+					<li><a href="#" target="_blank" rel="noopener">Twitter</a></li>
+					<li><a href="#" target="_blank" rel="noopener">Pinterest</a></li>
+				</ul>
+			</div>
+		</div>
+
+		<div class="footer-bottom">
+			<p>{currentYear} {brand.name}. Todos los derechos reservados.</p>
+		</div>
 	</div>
 </footer>
+
+<style>
+	.store-footer {
+		border-top: 1px solid #e5e7eb;
+		margin-top: 5rem;
+		padding: 4rem 0 2rem;
+		background: #fff;
+	}
+
+	.footer-grid {
+		display: grid;
+		grid-template-columns: 2fr 1fr 1fr 1fr;
+		gap: 3rem;
+	}
+
+	@media (max-width: 768px) {
+		.footer-grid {
+			grid-template-columns: 1fr 1fr;
+			gap: 2rem;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.footer-grid {
+			grid-template-columns: 1fr;
+			gap: 2rem;
+		}
+	}
+
+	.footer-col {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.footer-title {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		color: #111;
+		margin: 0;
+	}
+
+	.footer-text {
+		font-size: 0.8125rem;
+		color: #6b7280;
+		line-height: 1.6;
+		margin: 0;
+		max-width: 280px;
+	}
+
+	.footer-links {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+	}
+
+	.footer-links li {
+		font-size: 0.8125rem;
+		color: #6b7280;
+	}
+
+	.footer-links a {
+		color: #6b7280;
+		text-decoration: none;
+		transition: color 0.15s ease;
+	}
+
+	.footer-links a:hover {
+		color: #111;
+	}
+
+	.footer-contact li {
+		font-size: 0.8125rem;
+		color: #6b7280;
+	}
+
+	.footer-bottom {
+		margin-top: 3rem;
+		padding-top: 2rem;
+		border-top: 1px solid #e5e7eb;
+		text-align: center;
+	}
+
+	.footer-bottom p {
+		font-size: 0.75rem;
+		color: #9ca3af;
+		letter-spacing: 0.05em;
+		margin: 0;
+	}
+</style>

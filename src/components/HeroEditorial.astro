@@ -1,0 +1,147 @@
+---
+import type { HomeImageConfig } from '../lib/homeImages';
+
+interface Props {
+	image: HomeImageConfig;
+	eyebrow?: string;
+	title: string;
+	subtitle?: string;
+	primaryCta?: { href: string; label: string };
+	secondaryCta?: { href: string; label: string };
+}
+
+const {
+	image,
+	eyebrow,
+	title,
+	subtitle,
+	primaryCta,
+	secondaryCta,
+} = Astro.props;
+
+const hasImage = !!image.src;
+const bgStyle = hasImage
+	? undefined
+	: image.fallbackGradient
+		? `background: ${image.fallbackGradient};`
+		: `background: ${image.fallbackColor};`;
+---
+
+<section class="hero-editorial">
+	{hasImage ? (
+		<img
+			src={image.src!}
+			alt={image.alt}
+			class="hero-editorial__image"
+			loading="eager"
+		/>
+	) : (
+		<div class="hero-editorial__placeholder" style={bgStyle}></div>
+	)}
+	<div class="hero-editorial__overlay">
+		{eyebrow && <p class="hero-editorial__eyebrow">{eyebrow}</p>}
+		<h1 class="hero-editorial__title">{title}</h1>
+		{subtitle && <p class="hero-editorial__subtitle">{subtitle}</p>}
+		{(primaryCta || secondaryCta) && (
+			<div class="hero-editorial__buttons">
+				{primaryCta && (
+					<a href={primaryCta.href} class="btn-primary">
+						{primaryCta.label}
+					</a>
+				)}
+				{secondaryCta && (
+					<a
+						href={secondaryCta.href}
+						class="btn-secondary hero-editorial__btn-outline"
+					>
+						{secondaryCta.label}
+					</a>
+				)}
+			</div>
+		)}
+	</div>
+</section>
+
+<style>
+	.hero-editorial {
+		position: relative;
+		width: 100%;
+		height: 85vh;
+		min-height: 500px;
+		max-height: 800px;
+		overflow: hidden;
+	}
+
+	.hero-editorial__image {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.hero-editorial__placeholder {
+		width: 100%;
+		height: 100%;
+	}
+
+	.hero-editorial__overlay {
+		position: absolute;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.3);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		color: #fff;
+		padding: 2rem;
+	}
+
+	.hero-editorial__eyebrow {
+		font-size: 0.75rem;
+		letter-spacing: 0.2em;
+		text-transform: uppercase;
+		margin: 0 0 1rem;
+		opacity: 0.9;
+	}
+
+	.hero-editorial__title {
+		font-size: clamp(2rem, 6vw, 4rem);
+		font-weight: 300;
+		letter-spacing: 0.05em;
+		margin: 0;
+		text-transform: uppercase;
+	}
+
+	.hero-editorial__subtitle {
+		font-size: 1rem;
+		margin: 1rem 0 0;
+		opacity: 0.85;
+		max-width: 400px;
+	}
+
+	.hero-editorial__buttons {
+		display: flex;
+		gap: 1rem;
+		margin-top: 2.5rem;
+		flex-wrap: wrap;
+		justify-content: center;
+	}
+
+	.hero-editorial__btn-outline {
+		background: transparent;
+		color: #fff;
+		border-color: #fff;
+	}
+
+	.hero-editorial__btn-outline:hover {
+		background: rgba(255, 255, 255, 0.1);
+		color: #fff;
+	}
+
+	@media (max-width: 768px) {
+		.hero-editorial {
+			height: 70vh;
+			min-height: 400px;
+		}
+	}
+</style>

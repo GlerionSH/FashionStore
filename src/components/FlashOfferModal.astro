@@ -1,0 +1,282 @@
+---
+---
+
+<div
+	id="flash-offer-modal"
+	class="flash-modal"
+	role="dialog"
+	aria-modal="true"
+	aria-labelledby="flash-modal-title"
+	aria-describedby="flash-modal-desc"
+	hidden
+>
+	<div class="flash-modal__backdrop" data-close></div>
+	<div class="flash-modal__content fx-pop">
+		<button
+			type="button"
+			class="flash-modal__close"
+			aria-label="Cerrar"
+			data-close
+		>
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+				<path d="M18 6L6 18M6 6l12 12" />
+			</svg>
+		</button>
+
+		<img
+			src="/logo2.png"
+			alt="Logo"
+			class="flash-modal__logo"
+			loading="eager"
+		/>
+
+		<h2 id="flash-modal-title" class="flash-modal__title">
+			-<span id="flash-modal-percent">0</span>% OFERTA FLASH
+		</h2>
+
+		<p id="flash-modal-desc" class="flash-modal__text">
+			<span id="flash-modal-custom-text">Aprovecha hoy. Descuento aplicado automaticamente en el checkout.</span>
+		</p>
+
+		<div class="flash-modal__buttons">
+			<button type="button" class="btn-primary" data-action="scroll">
+				Ver productos con oferta
+			</button>
+			<button type="button" class="btn-secondary" data-close>
+				Cerrar
+			</button>
+		</div>
+	</div>
+</div>
+
+<script>
+	(() => {
+		const STORAGE_KEY = 'flash_offer_modal';
+		const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+		const modal = document.getElementById('flash-offer-modal');
+		if (!modal) return;
+
+		const percentEl = document.getElementById('flash-modal-percent');
+		const customTextEl = document.getElementById('flash-modal-custom-text');
+		const content = modal.querySelector('.flash-modal__content') as HTMLElement | null;
+
+		let focusableEls: HTMLElement[] = [];
+		let firstFocusable: HTMLElement | null = null;
+		let lastFocusable: HTMLElement | null = null;
+		let previousActiveElement: HTMLElement | null = null;
+
+		const prefersReducedMotion = () =>
+			window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+		const shouldShow = (offerId: string, percent: number): boolean => {
+			try {
+				const stored = localStorage.getItem(STORAGE_KEY);
+				if (!stored) return true;
+				const data = JSON.parse(stored);
+				const key = `${offerId}_${percent}`;
+				const lastShown = data[key];
+				if (!lastShown) return true;
+				return Date.now() - lastShown > COOLDOWN_MS;
+			} catch {
+				return true;
+			}
+		};
+
+		const markShown = (offerId: string, percent: number): void => {
+			try {
+				const stored = localStorage.getItem(STORAGE_KEY);
+				const data = stored ? JSON.parse(stored) : {};
+				const key = `${offerId}_${percent}`;
+				data[key] = Date.now();
+				localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+			} catch {}
+		};
+
+		const openModal = (): void => {
+			previousActiveElement = document.activeElement as HTMLElement;
+			modal.hidden = false;
+			document.body.style.overflow = 'hidden';
+
+			focusableEls = Array.from(
+				modal.querySelectorAll<HTMLElement>(
+					'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+				)
+			);
+			firstFocusable = focusableEls[0] ?? null;
+			lastFocusable = focusableEls[focusableEls.length - 1] ?? null;
+
+			setTimeout(() => {
+				firstFocusable?.focus();
+			}, 50);
+		};
+
+		const closeModal = (): void => {
+			modal.hidden = true;
+			document.body.style.overflow = '';
+			previousActiveElement?.focus();
+		};
+
+		const handleKeyDown = (e: KeyboardEvent): void => {
+			if (modal.hidden) return;
+
+			if (e.key === 'Escape') {
+				closeModal();
+				return;
+			}
+
+			if (e.key === 'Tab') {
+				if (focusableEls.length === 0) {
+					e.preventDefault();
+					return;
+				}
+
+				if (e.shiftKey) {
+					if (document.activeElement === firstFocusable) {
+						e.preventDefault();
+						lastFocusable?.focus();
+					}
+				} else {
+					if (document.activeElement === lastFocusable) {
+						e.preventDefault();
+						firstFocusable?.focus();
+					}
+				}
+			}
+		};
+
+		modal.addEventListener('click', (e) => {
+			const target = e.target as HTMLElement;
+			if (target.closest('[data-close]')) {
+				closeModal();
+			}
+			if (target.closest('[data-action="scroll"]')) {
+				closeModal();
+				const grid = document.getElementById('products-grid');
+				if (grid) {
+					grid.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+				}
+			}
+		});
+
+		document.addEventListener('keydown', handleKeyDown);
+
+		fetch('/api/flash-offer', { method: 'GET' })
+			.then((r) => r.json())
+			.then((data) => {
+				if (!data || !data.active || !data.offer) return;
+
+				const offer = data.offer;
+				const percent = Math.trunc(offer.discount_percent ?? 0);
+				const offerId = offer.id ?? 'unknown';
+				const showPopup = offer.show_popup !== false;
+
+				if (!showPopup || percent <= 0) return;
+				if (!shouldShow(offerId, percent)) return;
+
+				if (percentEl) percentEl.textContent = String(percent);
+
+				if (customTextEl && offer.popup_text) {
+					customTextEl.textContent = offer.popup_text;
+				}
+
+				markShown(offerId, percent);
+				openModal();
+			})
+			.catch(() => {});
+	})();
+</script>
+
+<style>
+	.flash-modal {
+		position: fixed;
+		inset: 0;
+		z-index: 9999;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.flash-modal[hidden] {
+		display: none;
+	}
+
+	.flash-modal__backdrop {
+		position: absolute;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.5);
+		cursor: pointer;
+	}
+
+	.flash-modal__content {
+		position: relative;
+		background: #fff;
+		max-width: 420px;
+		width: calc(100% - 2rem);
+		padding: 3rem 2rem;
+		text-align: center;
+		box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+		border: 1px solid #e5e7eb;
+	}
+
+	.flash-modal__close {
+		position: absolute;
+		top: 1rem;
+		right: 1rem;
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: #6b7280;
+		padding: 0.25rem;
+		transition: color 0.15s ease;
+	}
+
+	.flash-modal__close:hover {
+		color: #111;
+	}
+
+	.flash-modal__close:focus-visible {
+		outline: 2px solid #111;
+		outline-offset: 2px;
+	}
+
+	.flash-modal__logo {
+		max-width: 120px;
+		height: auto;
+		margin: 0 auto 1.5rem;
+		display: block;
+	}
+
+	.flash-modal__title {
+		font-size: 1.75rem;
+		font-weight: 300;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		margin: 0 0 1rem;
+		color: #111;
+	}
+
+	.flash-modal__text {
+		font-size: 0.875rem;
+		color: #6b7280;
+		margin: 0 0 2rem;
+		line-height: 1.6;
+	}
+
+	.flash-modal__buttons {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.flash-modal__buttons .btn-primary,
+	.flash-modal__buttons .btn-secondary {
+		width: 100%;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.flash-modal__content {
+			animation: none;
+		}
+	}
+</style>

@@ -305,6 +305,7 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
+        class={open ? 'fx-hover' : 'fx-hover fx-pop'}
         style={{
           position: 'fixed',
           right: 24,
@@ -312,7 +313,7 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
           zIndex: 40,
           background: '#111',
           color: '#fff',
-          border: 'none',
+          border: '1px solid #111',
           padding: '12px 20px',
           cursor: 'pointer',
           fontSize: 12,
@@ -322,6 +323,8 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
           display: 'flex',
           alignItems: 'center',
           gap: 10,
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.18)',
+          borderRadius: 999,
         }}
       >
         <span>Carrito</span>
@@ -331,6 +334,7 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
           fontSize: 11,
           fontWeight: 600,
           padding: '2px 8px',
+          borderRadius: 999,
         }}>
           {count}
         </span>
