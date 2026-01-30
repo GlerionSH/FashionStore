@@ -2,31 +2,102 @@ import { defineMiddleware } from 'astro:middleware';
 import { createClient } from '@supabase/supabase-js';
 
 export const onRequest = defineMiddleware(async (context, next) => {
+  const { request } = context;
+
+  const FORM_CONTENT_TYPES = [
+    'application/x-www-form-urlencoded',
+    'multipart/form-data',
+    'text/plain',
+  ];
+
+  const normalizeOrigin = (value: string | null): string | null => {
+    if (!value) return null;
+    return value.trim().replace(/\/+$/, '');
+  };
+
+  const getForwardedFirst = (value: string | null): string | null => {
+    if (!value) return null;
+    const first = value.split(',')[0]?.trim();
+    return first || null;
+  };
+
+  const method = request.method.toUpperCase();
+  const contentType = (request.headers.get('content-type') || '').toLowerCase();
+  const isFormContent = FORM_CONTENT_TYPES.some((t) => contentType.startsWith(t));
+  const isUnsafeMethod =
+    method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE';
+
+  if (isUnsafeMethod && isFormContent) {
+    const originHeader = normalizeOrigin(request.headers.get('origin'));
+
+    const xfProto = getForwardedFirst(request.headers.get('x-forwarded-proto'));
+    const xfHost = getForwardedFirst(request.headers.get('x-forwarded-host'));
+
+    const url = new URL(request.url);
+    const proto = (xfProto || url.protocol.replace(':', '')).trim();
+    const hostHeader = request.headers.get('host');
+    const host = (xfHost || hostHeader || url.host).trim();
+
+    const expectedOrigin = normalizeOrigin(`${proto}://${host}`);
+
+    let publicSiteOrigin: string | null = null;
+    const rawPublicSite = (process.env.PUBLIC_SITE_URL || '').trim();
+    if (rawPublicSite) {
+      try {
+        publicSiteOrigin = normalizeOrigin(new URL(rawPublicSite).origin);
+      } catch {
+        publicSiteOrigin = normalizeOrigin(rawPublicSite);
+      }
+    }
+
+    const isAllowed =
+      originHeader !== null &&
+      (originHeader === expectedOrigin ||
+        (publicSiteOrigin !== null && originHeader === publicSiteOrigin));
+
+    if (!isAllowed) {
+      console.warn('[security] blocked cross-site form submission', {
+        originHeader,
+        expectedOrigin,
+        publicSiteOrigin,
+        host,
+        x_forwarded_host: xfHost,
+        x_forwarded_proto: xfProto,
+        url: request.url,
+      });
+
+      return new Response(`Cross-site ${method} form submissions are forbidden`, {
+        status: 403,
+      });
+    }
+  }
+
   const currentPath = new URL(context.request.url).pathname;
 
   if (currentPath.startsWith('/api/auth/')) {
     return next();
   }
 
-	if (currentPath === '/admin-fs/login' || currentPath === '/admin-fs/login/') {
-		return next();
-	}
-
-  if (
-		currentPath === '/' ||
-		currentPath.startsWith('/productos') ||
-		currentPath.startsWith('/categoria') ||
-		currentPath === '/carrito' ||
-		currentPath === '/carrito/'
-	) {
+  if (currentPath === '/admin-fs/login' || currentPath === '/admin-fs/login/') {
     return next();
   }
 
-	// Store auth routes are public
-	if (currentPath.startsWith('/auth/')) {
-		return next();
-	}
+  if (
+    currentPath === '/' ||
+    currentPath.startsWith('/productos') ||
+    currentPath.startsWith('/categoria') ||
+    currentPath === '/carrito' ||
+    currentPath === '/carrito/'
+  ) {
+    return next();
+  }
 
+  // Store auth routes are public
+  if (currentPath.startsWith('/auth/')) {
+    return next();
+  }
+
+  
 	// CRM landing and CRM auth routes are public
 	if (currentPath === '/crm' || currentPath === '/crm/' || currentPath.startsWith('/crm/auth/')) {
 		return next();

@@ -11,6 +11,9 @@ if (process.env.NODE_ENV === 'production' && !publicSiteUrl) {
 }
 export default defineConfig({
   site: publicSiteUrl || undefined,
+  security: {
+    checkOrigin: false,
+  },
   output: 'server',
   integrations: [preact()],
   adapter: node({
