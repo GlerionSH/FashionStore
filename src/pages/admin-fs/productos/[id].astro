@@ -1,6 +1,7 @@
 ---
 import AdminFSLayout from '../../../layouts/AdminFSLayout.astro';
 import { getSupabaseAdmin, getSupabasePublic } from '../../../lib/database/supabaseServer';
+import { getLangFromCookie } from '../../../lib/i18n';
 
 export const prerender = false;
 
@@ -12,15 +13,21 @@ if (!id) {
 const publicSb = getSupabasePublic() as any;
 const adminSb = getSupabaseAdmin() as any;
 
-type CategoryRow = { id: string; name: string };
-const { data: categoriesData } = await publicSb.from('fs_categories').select('id,name').order('name');
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+
+type CategoryRow = { id: string; name: string; name_es?: string | null; name_en?: string | null };
+const { data: categoriesData } = await publicSb
+	.from('fs_categories')
+	.select('id,name,name_es,name_en')
+	.order('name');
 const categories: CategoryRow[] = categoriesData ?? [];
 
 let error: string | null = null;
 
 const { data: productData, error: productError } = await adminSb
 	.from('fs_products')
-	.select('id,name,slug,description,price_cents,stock,category_id,is_active,images,product_type,sizes,size_stock')
+	.select('id,name,name_es,name_en,slug,description,description_es,description_en,price_cents,stock,category_id,is_active,images,product_type,sizes,size_stock')
 	.eq('id', id)
 	.maybeSingle();
 
@@ -45,9 +52,11 @@ if (Astro.request.method === 'POST' && product) {
 			return Astro.redirect('/admin-fs/productos');
 		}
 	} else if (action === 'save') {
-		const name = String(form.get('name') ?? '').trim();
+		const name_es = String(form.get('name_es') ?? '').trim();
+		const name_en = String(form.get('name_en') ?? '').trim();
 		const slug = String(form.get('slug') ?? '').trim();
-		const description = String(form.get('description') ?? '').trim();
+		const description_es = String(form.get('description_es') ?? '').trim();
+		const description_en = String(form.get('description_en') ?? '').trim();
 		const priceCents = Number(form.get('price_cents') ?? 0);
 		const stock = Number(form.get('stock') ?? 0);
 		const categoryId = String(form.get('category_id') ?? '').trim();
@@ -75,8 +84,12 @@ if (Astro.request.method === 'POST' && product) {
 		// Parse new Cloudinary URLs from hidden inputs
 		const newCloudinaryUrls = form.getAll('cloudinary_urls[]').map((u) => String(u).trim()).filter(Boolean);
 
-		if (!name || !slug || !categoryId) {
-			error = error || 'name, slug y category_id son requeridos';
+		if (!name_es || !name_en || !slug || !categoryId) {
+			error =
+				error ||
+				(lang === 'en'
+					? 'name_es, name_en, slug and category_id are required'
+					: 'name_es, name_en, slug y category_id son requeridos');
 		} else if (!Number.isFinite(priceCents) || priceCents < 0) {
 			error = error || 'price_cents inválido';
 		} else if (!Number.isFinite(stock) || stock < 0) {
@@ -91,9 +104,13 @@ if (Astro.request.method === 'POST' && product) {
 			const { error: updateError } = await adminSb
 				.from('fs_products')
 				.update({
-					name,
+					name: name_es,
+					name_es,
+					name_en,
 					slug,
-					description: description || null,
+					description: description_es || description_en || null,
+					description_es: description_es || null,
+					description_en: description_en || null,
 					price_cents: Math.trunc(priceCents),
 					stock: Math.trunc(stock),
 					category_id: categoryId,
@@ -142,23 +159,27 @@ const productSizes: string[] = Array.isArray(product?.sizes) ? product.sizes : [
 const productSizeStock: Record<string, number> = typeof product?.size_stock === 'object' && product?.size_stock !== null ? product.size_stock : {};
 ---
 
-<AdminFSLayout title="Admin FashionStore - Editar producto">
+<AdminFSLayout title={lang === 'en' ? 'Admin FashionStore - Edit product' : 'Admin FashionStore - Editar producto'}>
 	<section style="padding: 3rem 0 4rem;">
 		<div class="container">
 			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
 				<div>
 					<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.75rem;">
-						Catalogo
+						{lang === 'en' ? 'Catalog' : 'Catalogo'}
 					</p>
 					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
-						Editar producto
+						{lang === 'en' ? 'Edit product' : 'Editar producto'}
 					</h1>
 					<p class="helper-text" style="margin-top: 0.75rem; max-width: 900px; word-break: break-word;">ID: {id}</p>
 				</div>
-				<a class="btn-secondary" href="/admin-fs/productos">Volver</a>
+				<a class="btn-secondary" href="/admin-fs/productos">{lang === 'en' ? 'Back' : 'Volver'}</a>
 			</div>
 
-			{!product && !productError && <div class="alert alert-error" style="margin-top: 1.5rem;">Producto no encontrado</div>}
+			{!product && !productError && (
+				<div class="alert alert-error" style="margin-top: 1.5rem;">
+					{lang === 'en' ? 'Product not found' : 'Producto no encontrado'}
+				</div>
+			)}
 			{error && <div class="alert alert-error" style="margin-top: 1.5rem;">{error}</div>}
 
 			{product && (
@@ -167,17 +188,27 @@ const productSizeStock: Record<string, number> = typeof product?.size_stock === 
 					<div style="border: 1px solid #e5e7eb; padding: 1.5rem;">
 						<div style="display: grid; gap: 1rem;">
 							<div>
-								<label for="name" class="form-label">Name</label>
-								<input class="form-input" id="name" type="text" name="name" value={product.name} required />
+								<label for="name_es" class="form-label">{lang === 'en' ? 'Name (ES)' : 'Nombre (ES)'}</label>
+								<input class="form-input" id="name_es" type="text" name="name_es" value={product.name_es ?? product.name ?? ''} required />
+							</div>
+							<div>
+								<label for="name_en" class="form-label">{lang === 'en' ? 'Name (EN)' : 'Nombre (EN)'}</label>
+								<input class="form-input" id="name_en" type="text" name="name_en" value={product.name_en ?? product.name_es ?? product.name ?? ''} required />
 							</div>
 							<div>
 								<label for="slug" class="form-label">Slug</label>
 								<input class="form-input" id="slug" type="text" name="slug" value={product.slug} required />
 							</div>
 							<div>
-								<label for="description" class="form-label">Description</label>
-								<textarea class="form-input" id="description" name="description" rows={4}>
-									{product.description ?? ''}
+								<label for="description_es" class="form-label">{lang === 'en' ? 'Description (ES)' : 'Descripción (ES)'}</label>
+								<textarea class="form-input" id="description_es" name="description_es" rows={4}>
+									{product.description_es ?? product.description ?? ''}
+								</textarea>
+							</div>
+							<div>
+								<label for="description_en" class="form-label">{lang === 'en' ? 'Description (EN)' : 'Descripción (EN)'}</label>
+								<textarea class="form-input" id="description_en" name="description_en" rows={4}>
+									{product.description_en ?? product.description_es ?? product.description ?? ''}
 								</textarea>
 							</div>
 							<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -186,7 +217,7 @@ const productSizeStock: Record<string, number> = typeof product?.size_stock === 
 									<input class="form-input" id="price_cents" type="number" name="price_cents" min="0" step="1" value={product.price_cents} required />
 								</div>
 								<div>
-									<label for="stock" class="form-label">Stock general</label>
+									<label for="stock" class="form-label">{lang === 'en' ? 'General stock' : 'Stock general'}</label>
 									<input class="form-input" id="stock" type="number" name="stock" min="0" step="1" value={product.stock} required />
 								</div>
 							</div>
@@ -201,15 +232,15 @@ const productSizeStock: Record<string, number> = typeof product?.size_stock === 
 								</select>
 							</div>
 							<div>
-								<label for="product_type" class="form-label">Tipo de producto</label>
+								<label for="product_type" class="form-label">{lang === 'en' ? 'Product type' : 'Tipo de producto'}</label>
 								<select class="form-input" id="product_type" name="product_type">
-									<option value="clothing" selected={productType === 'clothing'}>Ropa (clothing)</option>
-									<option value="shoes" selected={productType === 'shoes'}>Zapatos (shoes)</option>
+									<option value="clothing" selected={productType === 'clothing'}>{lang === 'en' ? 'Clothing (clothing)' : 'Ropa (clothing)'}</option>
+									<option value="shoes" selected={productType === 'shoes'}>{lang === 'en' ? 'Shoes (shoes)' : 'Zapatos (shoes)'}</option>
 								</select>
 							</div>
 							<label style="display: inline-flex; align-items: center; gap: 0.75rem;">
 								<input type="checkbox" name="is_active" checked={!!product.is_active} />
-								<span class="helper-text">Activo</span>
+								<span class="helper-text">{lang === 'en' ? 'Active' : 'Activo'}</span>
 							</label>
 						</div>
 					</div>
@@ -236,7 +267,7 @@ const productSizeStock: Record<string, number> = typeof product?.size_stock === 
 						</div>
 					</div>
 
-					<button class="btn-primary" type="submit" style="width: fit-content;">Guardar</button>
+					<button class="btn-primary" type="submit" style="width: fit-content;">{lang === 'en' ? 'Save' : 'Guardar'}</button>
 				</form>
 			)}
 
@@ -284,7 +315,7 @@ const productSizeStock: Record<string, number> = typeof product?.size_stock === 
 				const suggestionsContainer = document.getElementById('size-suggestions');
 				const selectedContainer = document.getElementById('selected-sizes');
 
-				if (!productTypeSelect || !suggestionsContainer || !selectedContainer) return;
+				if (!(productTypeSelect instanceof HTMLSelectElement) || !suggestionsContainer || !selectedContainer) return;
 
 				// Initialize with existing product sizes
 				const selectedSizes = new Map();
@@ -434,7 +465,7 @@ const productSizeStock: Record<string, number> = typeof product?.size_stock === 
 
 				const uploadFiles = async (files) => {
 					errorEl.textContent = '';
-					const validFiles = files.filter(f => {
+					const validFiles = files.filter((f) => {
 						if (!ALLOWED_TYPES.includes(f.type)) {
 							errorEl.textContent = `Tipo no permitido: ${f.type}. Solo jpg/png/webp.`;
 							return false;
@@ -482,7 +513,7 @@ const productSizeStock: Record<string, number> = typeof product?.size_stock === 
 							uploaded++;
 							renderPreviews();
 						} catch (err) {
-							errorEl.textContent = err.message || 'Error subiendo imagen';
+							errorEl.textContent = (err && err.message) || 'Error subiendo imagen';
 						}
 					}
 

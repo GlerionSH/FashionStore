@@ -2,22 +2,31 @@
 import { createClient } from '@supabase/supabase-js';
 import '../styles/tailwind.css';
 import FlashOfferUI from '../components/islands/FlashOfferUI.tsx';
+import CartPanel from '../components/islands/CartPanel.tsx';
+import CartBadge from '../components/islands/CartBadge.tsx';
 import Footer from '../components/Footer.astro';
 import { getBrand } from '../lib/brand';
+import { getLangFromCookie } from '../lib/i18n';
+import { requireAdmin } from '../lib/auth/requireAdmin';
 
 export const prerender = false;
 
 interface Props {
 	title?: string;
 	showAuth?: boolean;
+	showCartPanel?: boolean;
 }
 
-const { title = 'Fashion Store', showAuth = true } = Astro.props;
+const { title = 'Fashion Store', showAuth = true, showCartPanel = true } = Astro.props;
 
 const brand = getBrand();
 
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+
 let loggedIn = false;
 let userEmail: string | null = null;
+let isAdmin = false;
 
 if (showAuth) {
 	const accessToken = Astro.cookies.get('sb-access-token')?.value;
@@ -37,10 +46,19 @@ if (showAuth) {
 		}
 	}
 }
+
+if (showAuth) {
+	try {
+		const adminCheck = await requireAdmin(Astro.cookies);
+		isAdmin = !!adminCheck?.ok;
+	} catch {
+		isAdmin = false;
+	}
+}
 ---
 
 <!doctype html>
-<html lang="es">
+<html lang={lang}>
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -484,7 +502,7 @@ if (showAuth) {
 						onmouseover="this.style.color='#6b7280'"
 						onmouseout="this.style.color='#111'"
 					>
-						Productos
+						{lang === 'en' ? 'Products' : 'Productos'}
 					</a>
 					<a
 						id="nav-ofertas"
@@ -493,7 +511,7 @@ if (showAuth) {
 						onmouseover="this.style.color='#6b7280'"
 						onmouseout="this.style.color='#111'"
 					>
-						OFERTAS
+						{lang === 'en' ? 'OFFERS' : 'OFERTAS'}
 					</a>
 					<a
 						href="/carrito"
@@ -501,7 +519,10 @@ if (showAuth) {
 						onmouseover="this.style.color='#6b7280'"
 						onmouseout="this.style.color='#111'"
 					>
-						Carrito
+						<span style="display: inline-flex; align-items: center; gap: 0.5rem;">
+							<span>{lang === 'en' ? 'Cart' : 'Carrito'}</span>
+							<CartBadge client:only="preact" />
+						</span>
 					</a>
 					{loggedIn && (
 						<a
@@ -510,17 +531,36 @@ if (showAuth) {
 							onmouseover="this.style.color='#6b7280'"
 							onmouseout="this.style.color='#111'"
 						>
-							Cuenta
+							{lang === 'en' ? 'Account' : 'Cuenta'}
+						</a>
+					)}
+					{isAdmin && (
+						<a
+							href="/admin-fs"
+							style="font-size: 0.8125rem; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.2s;"
+							onmouseover="this.style.color='#6b7280'"
+							onmouseout="this.style.color='#111'"
+						>
+							{lang === 'en' ? 'Back to Admin' : 'Volver a Admin'}
 						</a>
 					)}
 				</nav>
-
+				
 				<div style="display: flex; align-items: center; gap: 1.5rem;">
+					<button
+						id="fs-lang-toggle"
+						type="button"
+						data-current-lang={lang}
+						class="btn-link"
+						style="font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase;"
+					>
+						{lang === 'en' ? 'EN' : 'ES'}
+					</button>
 					{loggedIn ? (
 						<>
 							{userEmail && <span style="font-size: 0.75rem; color: #6b7280;">{userEmail}</span>}
 							<form method="POST" action="/auth/logout" style="margin: 0;">
-								<button type="submit" class="btn-link">Salir</button>
+								<button type="submit" class="btn-link">{lang === 'en' ? 'Logout' : 'Salir'}</button>
 							</form>
 						</>
 					) : (
@@ -531,7 +571,7 @@ if (showAuth) {
 								onmouseover="this.style.color='#6b7280'"
 								onmouseout="this.style.color='#111'"
 							>
-								Login
+								{lang === 'en' ? 'Login' : 'Login'}
 							</a>
 							<a
 								href="/auth/register"
@@ -539,7 +579,7 @@ if (showAuth) {
 								onmouseover="this.style.color='#6b7280'"
 								onmouseout="this.style.color='#111'"
 							>
-								Registro
+								{lang === 'en' ? 'Register' : 'Registro'}
 							</a>
 						</>
 					)}
@@ -552,18 +592,39 @@ if (showAuth) {
 			<slot />
 		</main>
 
+		{showCartPanel && <CartPanel client:only="preact" />}
+
 		<script>
 			(() => {
 				const el = document.getElementById('nav-ofertas');
-				if (!(el instanceof HTMLAnchorElement)) return;
-				fetch('/api/flash-offer', { method: 'GET' })
-					.then((r) => r.json())
-					.then((data) => {
-						if (data && data.active) {
-							el.style.display = '';
-						}
-					})
-					.catch(() => {});
+				if (el instanceof HTMLAnchorElement) {
+					fetch('/api/flash-offer', { method: 'GET' })
+						.then((r) => r.json())
+						.then((data) => {
+							if (data && data.active) {
+								el.style.display = '';
+							}
+						})
+						.catch(() => {});
+				}
+			})();
+
+			(() => {
+				const btn = document.getElementById('fs-lang-toggle');
+				if (!(btn instanceof HTMLButtonElement)) return;
+				
+				const current = btn.dataset.currentLang === 'en' ? 'en' : 'es';
+				const next = current === 'es' ? 'en' : 'es';
+				
+				btn.addEventListener('click', () => {
+					try {
+						document.cookie = `fs_lang=${encodeURIComponent(next)};path=/;max-age=31536000`;
+					} catch {}
+					try {
+						window.localStorage.setItem('fs_lang', next);
+					} catch {}
+					window.location.reload();
+				});
 			})();
 		</script>
 

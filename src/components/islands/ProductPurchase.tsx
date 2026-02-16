@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import AddToCartButton from './AddToCartButton';
+import { getLang } from '../../lib/i18n';
 
 type Props = {
 	productId: string;
@@ -13,6 +14,7 @@ type Props = {
 
 export default function ProductPurchase({ productId, name, priceCents, stock, imageUrl, sizes = [], sizeStock = {} }: Props) {
 	const hasSizes = sizes.length > 0;
+	const lang = getLang();
 	const [selectedSize, setSelectedSize] = useState<string | null>(null);
 	const [sizeError, setSizeError] = useState(false);
 
@@ -60,7 +62,7 @@ export default function ProductPurchase({ productId, name, priceCents, stock, im
 			{/* Size selector */}
 			{hasSizes && (
 				<div class="pdp-block">
-					<div class="pdp-label">Talla</div>
+					<div class="pdp-label">{lang === 'en' ? 'Size' : 'Talla'}</div>
 					<div class="pdp-sizes">
 						{sizes.map((size) => {
 							const sizeAvailable = (sizeStock[size] ?? 0) > 0;
@@ -86,11 +88,15 @@ export default function ProductPurchase({ productId, name, priceCents, stock, im
 						})}
 					</div>
 					{sizeError && (
-						<p class="pdp-error">Selecciona una talla</p>
+						<p class="pdp-error">
+							{lang === 'en' ? 'Select a size' : 'Selecciona una talla'}
+						</p>
 					)}
 					{selectedSize && (
 						<p class="pdp-hint">
-							Stock talla {selectedSize}: {sizeStock[selectedSize] ?? 0}
+							{lang === 'en'
+								? `Size ${selectedSize} stock: ${sizeStock[selectedSize] ?? 0}`
+								: `Stock talla ${selectedSize}: ${sizeStock[selectedSize] ?? 0}`}
 						</p>
 					)}
 				</div>
@@ -98,7 +104,7 @@ export default function ProductPurchase({ productId, name, priceCents, stock, im
 
 			{/* Quantity selector */}
 			<div class="pdp-qty">
-				<div class="pdp-label">Cantidad</div>
+				<div class="pdp-label">{lang === 'en' ? 'Quantity' : 'Cantidad'}</div>
 				<div class="pdp-stepper">
 					<button
 						type="button"

@@ -3,17 +3,21 @@ import StoreLayout from '../layouts/StoreLayout.astro';
 import CartPanel from '../components/islands/CartPanel.tsx';
 import CheckoutButton from '../components/islands/CheckoutButton.tsx';
 import CartSummary from '../components/islands/CartSummary.tsx';
+import { getLangFromCookie } from '../lib/i18n';
 
 export const prerender = false;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 ---
 
-<StoreLayout title="Carrito - Fashion Store">
+<StoreLayout title={`${lang === 'en' ? 'Cart' : 'Carrito'} - Fashion Store`} showCartPanel={false}>
 	<!-- Breadcrumb -->
 	<div class="container" style="padding-top: 2rem;">
 		<nav style="font-size: 0.75rem; color: #9ca3af;">
-			<a href="/" style="transition: color 0.2s;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#9ca3af'">Home</a>
+			<a href="/" style="transition: color 0.2s;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#9ca3af'">{lang === 'en' ? 'Home' : 'Inicio'}</a>
 			<span style="margin: 0 0.5rem;">/</span>
-			<span style="color: #111;">Carrito</span>
+			<span style="color: #111;">{lang === 'en' ? 'Cart' : 'Carrito'}</span>
 		</nav>
 	</div>
 
@@ -21,7 +25,7 @@ export const prerender = false;
 	<section style="padding: 2rem 0 4rem;">
 		<div class="container">
 			<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 2rem;">
-				Carrito
+				{lang === 'en' ? 'Cart' : 'Carrito'}
 			</h1>
 
 			<div style="display: grid; grid-template-columns: 1fr 380px; gap: 3rem; align-items: start;">
@@ -33,14 +37,14 @@ export const prerender = false;
 				<!-- Summary -->
 				<aside style="border: 1px solid #e5e7eb; padding: 2rem;">
 					<h2 style="font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb;">
-						Resumen
+						{lang === 'en' ? 'Summary' : 'Resumen'}
 					</h2>
 
 					<div style="font-size: 0.875rem; margin-bottom: 1.5rem;">
 						<CartSummary client:only="preact" />
 						<div style="display: flex; justify-content: space-between; margin-top: 0.75rem;">
-							<span style="color: #6b7280;">Envio</span>
-							<span style="color: #6b7280;">Calculado al finalizar</span>
+							<span style="color: #6b7280;">{lang === 'en' ? 'Shipping' : 'Envío'}</span>
+							<span style="color: #6b7280;">{lang === 'en' ? 'Calculated at checkout' : 'Calculado al finalizar'}</span>
 						</div>
 					</div>
 
@@ -49,7 +53,7 @@ export const prerender = false;
 					</div>
 
 					<p style="font-size: 0.75rem; color: #9ca3af; text-align: center;">
-						Debes iniciar sesion para finalizar la compra
+						{lang === 'en' ? 'You can checkout as a guest or with an account.' : 'Puedes finalizar como invitado o con cuenta.'}
 					</p>
 				</aside>
 			</div>
@@ -57,7 +61,7 @@ export const prerender = false;
 			<!-- Continue Shopping -->
 			<div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #e5e7eb;">
 				<a href="/productos" style="font-size: 0.8125rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 1px solid #111; padding-bottom: 2px; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.6'" onmouseout="this.style.opacity='1'">
-					Continuar comprando
+					{lang === 'en' ? 'Continue shopping' : 'Continuar comprando'}
 				</a>
 			</div>
 		</div>

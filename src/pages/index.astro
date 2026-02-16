@@ -2,13 +2,13 @@
 import StoreLayout from '../layouts/StoreLayout.astro';
 import { supabase } from '../lib/supabase';
 import AddToCartButton from '../components/islands/AddToCartButton.tsx';
-import CartPanel from '../components/islands/CartPanel.tsx';
 import { applyPercentDiscountCents, getActiveFlashOffer } from '../lib/flashOffer';
 import { formatPriceEURFromCents } from '../lib/price';
 import { getBrand } from '../lib/brand';
 import { getHeroImage, getCategoryImages } from '../lib/homeImages';
 import HeroEditorial from '../components/HeroEditorial.astro';
 import CategoryBlock from '../components/CategoryBlock.astro';
+import { getLangFromCookie, getProductName } from '../lib/i18n';
 
 export const prerender = false;
 
@@ -19,6 +19,8 @@ type SiteSettingsRow = {
 type ProductRow = {
 	id: string;
 	name: string;
+	name_es?: string | null;
+	name_en?: string | null;
 	slug?: string;
 	price_cents: number;
 	stock: number;
@@ -28,6 +30,9 @@ type ProductRow = {
 const sb = supabase as any;
 
 const brand = getBrand();
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 
 const heroImage = getHeroImage();
 
@@ -40,13 +45,13 @@ const { data: settingsData } = await sb
 const settings: SiteSettingsRow | null = settingsData ?? null;
 const flashOffersEnabled = settings?.flash_offers_enabled ?? false;
 
-const categoryBlocks = getCategoryImages(flashOffersEnabled);
+const categoryBlocks = getCategoryImages(flashOffersEnabled, lang);
 
 let flashProducts: ProductRow[] = [];
 if (settings?.flash_offers_enabled) {
 	const { data: flashData } = await sb
 		.from('fs_products')
-		.select('id,name,slug,price_cents,stock,images')
+		.select('id,name,name_es,name_en,slug,price_cents,stock,images')
 		.eq('is_active', true)
 		.eq('is_flash', true)
 		.order('price_cents', { ascending: true })
@@ -57,7 +62,7 @@ if (settings?.flash_offers_enabled) {
 	if (flashProducts.length === 0) {
 		const { data: fallbackData } = await sb
 			.from('fs_products')
-			.select('id,name,slug,price_cents,stock,images')
+			.select('id,name,name_es,name_en,slug,price_cents,stock,images')
 			.eq('is_active', true)
 			.order('price_cents', { ascending: true })
 			.limit(4);
@@ -67,7 +72,7 @@ if (settings?.flash_offers_enabled) {
 
 const { data: featuredData } = await sb
 	.from('fs_products')
-	.select('id,name,slug,price_cents,stock,images')
+	.select('id,name,name_es,name_en,slug,price_cents,stock,images')
 	.eq('is_active', true)
 	.order('created_at', { ascending: false })
 	.limit(8);
@@ -78,17 +83,18 @@ const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 
 const activeOffer = await getActiveFlashOffer(sb);
 const discountPercent = activeOffer?.discount_percent ?? 0;
+
 ---
 
-<StoreLayout title="Fashion Store">
+<StoreLayout title={brand.name}>
 	<!-- Hero Editorial -->
 	<HeroEditorial
 		image={heroImage}
-		eyebrow="Nueva Coleccion"
-		title="Descubre tu estilo"
-		subtitle="Piezas atemporales con calidad y elegancia"
-		primaryCta={{ href: '/productos', label: 'Ver Productos' }}
-		secondaryCta={{ href: '/carrito', label: 'Ver Carrito' }}
+		eyebrow={lang === 'en' ? 'New collection' : 'Nueva colección'}
+		title={lang === 'en' ? 'Discover your style' : 'Descubre tu estilo'}
+		subtitle={lang === 'en' ? 'Timeless pieces with quality and elegance' : 'Piezas atemporales con calidad y elegancia'}
+		primaryCta={{ href: '/productos', label: lang === 'en' ? 'View products' : 'Ver productos' }}
+		secondaryCta={{ href: '/carrito', label: lang === 'en' ? 'View cart' : 'Ver carrito' }}
 	/>
 
 	<!-- Category Blocks -->
@@ -112,8 +118,8 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 		<section class="featured-section">
 			<div class="container">
 				<div class="section-header">
-					<h2 class="section-title">Destacados</h2>
-					<a href="/productos" class="section-link">Ver todo</a>
+					<h2 class="section-title">{lang === 'en' ? 'Featured' : 'Destacados'}</h2>
+					<a href="/productos" class="section-link">{lang === 'en' ? 'View all' : 'Ver todo'}</a>
 				</div>
 				<div class="products-grid">
 					{featuredProducts.slice(0, 4).map((p) => {
@@ -121,16 +127,17 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 						const images = Array.isArray(imagesRaw) ? (imagesRaw as string[]) : [];
 						const imageUrl = images.length > 0 ? images[0] : undefined;
 						const href = p.slug ? `/productos/${encodeURIComponent(p.slug)}` : '/productos';
+						const displayName = getProductName(p, lang);
 						return (
 							<article class="product-card">
 								<a href={href} class="product-card-image-wrapper">
 									{imageUrl ? (
-										<img src={imageUrl} alt={p.name} class="product-card-image" loading="lazy" />
+										<img src={imageUrl} alt={displayName} class="product-card-image" loading="lazy" />
 									) : (
 										<div class="product-card-image"></div>
 									)}
 								</a>
-								<a href={href} class="product-card-name">{p.name}</a>
+								<a href={href} class="product-card-name">{displayName}</a>
 								<p class="product-card-price">{formatPrice(p.price_cents)}</p>
 							</article>
 						);
@@ -145,8 +152,8 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 		<section class="flash-section">
 			<div class="container">
 				<div class="section-header">
-					<h2 class="section-title">Ofertas Flash</h2>
-					<a href="/productos?flash=1" class="section-link">Ver todo</a>
+					<h2 class="section-title">{lang === 'en' ? 'Flash offers' : 'Ofertas Flash'}</h2>
+					<a href="/productos?flash=1" class="section-link">{lang === 'en' ? 'View all' : 'Ver todo'}</a>
 				</div>
 				<div class="products-grid">
 					{flashProducts.map((p) => {
@@ -154,18 +161,19 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 						const images = Array.isArray(imagesRaw) ? (imagesRaw as string[]) : [];
 						const imageUrl = images.length > 0 ? images[0] : undefined;
 						const href = p.slug ? `/productos/${encodeURIComponent(p.slug)}` : '/productos';
+						const displayName = getProductName(p, lang);
 						const discounted = discountPercent > 0 ? applyPercentDiscountCents(p.price_cents, discountPercent) : p.price_cents;
 						const hasDiscount = discountPercent > 0 && discounted < p.price_cents;
 						return (
 							<article class="product-card">
 								<a href={href} class="product-card-image-wrapper">
 									{imageUrl ? (
-										<img src={imageUrl} alt={p.name} class="product-card-image" loading="lazy" />
+										<img src={imageUrl} alt={displayName} class="product-card-image" loading="lazy" />
 									) : (
 										<div class="product-card-image"></div>
 									)}
 								</a>
-								<a href={href} class="product-card-name">{p.name}</a>
+								<a href={href} class="product-card-name">{displayName}</a>
 								<p class="product-card-price">
 									{hasDiscount ? (
 										<span class="price-discounted">
@@ -177,7 +185,7 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 										<>{formatPrice(p.price_cents)}</>
 									)}
 								</p>
-								<AddToCartButton client:load productId={p.id} name={p.name} priceCents={p.price_cents} stock={p.stock} imageUrl={imageUrl} />
+								<AddToCartButton client:load productId={p.id} name={displayName} priceCents={p.price_cents} stock={p.stock} imageUrl={imageUrl} />
 							</article>
 						);
 					})}
@@ -186,7 +194,6 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 		</section>
 	)}
 
-	<CartPanel client:only="preact" />
 </StoreLayout>
 
 <style>

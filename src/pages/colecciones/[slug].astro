@@ -1,0 +1,224 @@
+---
+import StoreLayout from '../../layouts/StoreLayout.astro';
+import { supabase } from '../../lib/supabase';
+import HeroEditorial from '../../components/HeroEditorial.astro';
+import type { HomeImageConfig } from '../../lib/homeImages';
+import { getLangFromCookie, getCollectionName, getCollectionSubtitle, getProductName } from '../../lib/i18n';
+import { formatPriceEURFromCents } from '../../lib/price';
+import AddToCartButton from '../../components/islands/AddToCartButton.tsx';
+
+export const prerender = false;
+
+type CollectionRow = {
+	id: string;
+	slug: string;
+	type: string;
+	name_es: string;
+	name_en: string;
+	subtitle_es: string | null;
+	subtitle_en: string | null;
+	hero_image_url: string | null;
+	banner_image_url: string | null;
+};
+
+type ProductRow = {
+	id: string;
+	name: string;
+	name_es?: string | null;
+	name_en?: string | null;
+	slug: string;
+	price_cents: number;
+	stock: number;
+	images: unknown;
+	is_active: boolean;
+};
+
+const sb = supabase as any;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+
+const { slug } = Astro.params;
+const collectionSlugParam = slug ?? '';
+const decodedSlug = decodeURIComponent(collectionSlugParam);
+
+const { data: collectionData, error: collectionError } = await sb
+	.from('fs_collections')
+	.select('id,slug,type,name_es,name_en,subtitle_es,subtitle_en,hero_image_url,banner_image_url')
+	.eq('slug', decodedSlug)
+	.maybeSingle();
+
+if (collectionError) {
+	console.error('[coleccion] collectionError:', collectionError);
+}
+
+const collection: CollectionRow | null = collectionData ?? null;
+
+if (!collection) {
+	Astro.response.status = 404;
+}
+
+let products: ProductRow[] = [];
+
+if (collection) {
+	const { data: cpData, error: cpError } = await sb
+		.from('fs_collection_products')
+		.select('product_id,sort_order')
+		.eq('collection_id', collection.id)
+		.order('sort_order', { ascending: true });
+
+	if (cpError) {
+		console.error('[coleccion] collectionProductsError:', cpError);
+	}
+
+	const links = cpData ?? [];
+	const productIds = links.map((row: any) => row.product_id as string);
+
+	if (productIds.length > 0) {
+		const { data: prodData, error: prodError } = await sb
+			.from('fs_products')
+			.select('id,name,name_es,name_en,slug,price_cents,stock,images,is_active')
+			.in('id', productIds)
+			.eq('is_active', true);
+
+		if (prodError) {
+			console.error('[coleccion] productsError:', prodError);
+		}
+
+		const byId = new Map<string, ProductRow>();
+		for (const p of (prodData ?? []) as ProductRow[]) {
+			byId.set(p.id, p);
+		}
+
+		products = [];
+		for (const link of links) {
+			const p = byId.get((link as any).product_id as string);
+			if (p) products.push(p);
+		}
+	}
+}
+
+const collectionName = collection ? getCollectionName(collection, lang) : lang === 'en' ? 'Collection' : 'Colección';
+const collectionSubtitle = collection ? getCollectionSubtitle(collection, lang) : null;
+
+const heroImage: HomeImageConfig = {
+	src: collection?.hero_image_url || collection?.banner_image_url || null,
+	alt: collectionName,
+	fallbackColor: '#e5e7eb',
+	fallbackGradient: 'linear-gradient(135deg, #f5f5f5 0%, #e5e7eb 100%)',
+};
+
+const pageTitle = `${collectionName} - Fashion Store`;
+const ctaLabel = lang === 'en' ? 'View in catalog' : 'Ver en catálogo';
+const ctaHref = `/productos?collection=${encodeURIComponent(decodedSlug)}`;
+---
+
+<StoreLayout title={pageTitle}>
+	<HeroEditorial
+		image={heroImage}
+		eyebrow={lang === 'en' ? 'Collection' : 'Colección'}
+		title={collectionName}
+		subtitle={collectionSubtitle ?? undefined}
+		primaryCta={{ href: ctaHref, label: ctaLabel }}
+	/>
+
+	<section class="collection-products-section">
+		<div class="container">
+			{products.length === 0 && (
+				<div style="text-align: center; padding: 3rem 0; border: 1px solid #e5e7eb;">
+					<p style="font-size: 0.875rem; color: #9ca3af; margin: 0;">
+						{lang === 'en'
+							? 'No products in this collection yet.'
+							: 'No hay productos en esta colección todavía.'}
+					</p>
+				</div>
+			)}
+
+			{products.length > 0 && (
+				<div class="collection-products-grid">
+					{products.map((p) => {
+						const imagesRaw = p.images;
+						const images = Array.isArray(imagesRaw) ? (imagesRaw as string[]) : [];
+						const imageUrl = images.length > 0 ? images[0] : undefined;
+						const name = getProductName(p, lang);
+						const href = `/productos/${encodeURIComponent(p.slug)}`;
+
+						return (
+							<article class="product-card fx-card">
+								<a href={href} class="fx-img-wrap collection-card__image-wrap">
+									{imageUrl ? (
+											<img src={imageUrl} alt={name} loading="lazy" class="fx-img-zoom" />
+										) : (
+											<div class="collection-card__image-empty">
+												<span class="collection-card__image-empty-text">
+													{lang === 'en' ? 'Image not available' : 'Imagen no disponible'}
+												</span>
+											</div>
+										)}
+								</a>
+								<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+									<h3 style="font-size: 1rem; font-weight: 400; margin: 0;">
+										<a href={href} style="color: #111; text-decoration: none;">
+											{name}
+										</a>
+									</h3>
+									<p style="font-size: 0.9375rem; font-weight: 500; margin: 0;">
+										{formatPriceEURFromCents(p.price_cents)}
+									</p>
+								</div>
+								<div style="margin-top: 1rem;">
+									<AddToCartButton
+											client:load
+											productId={p.id}
+											name={name}
+											priceCents={p.price_cents}
+											stock={p.stock}
+											imageUrl={imageUrl}
+										/>
+								</div>
+							</article>
+						);
+					})}
+				</div>
+			)}
+		</div>
+	</section>
+</StoreLayout>
+
+<style>
+	.collection-products-section {
+		padding: 3rem 0 4rem;
+	}
+
+	.collection-products-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		gap: 2rem;
+	}
+
+	.collection-card__image-wrap {
+		aspect-ratio: 3 / 4;
+	}
+
+	.collection-card__image-empty {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #f5f5f5;
+	}
+
+	.collection-card__image-empty-text {
+		font-size: 0.6875rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: #9ca3af;
+	}
+
+	@media (max-width: 768px) {
+		.collection-products-section {
+			padding: 2.5rem 0 3.5rem;
+		}
+	}
+</style>

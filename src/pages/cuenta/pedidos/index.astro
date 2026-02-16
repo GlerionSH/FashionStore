@@ -2,10 +2,14 @@
 import StoreLayout from '../../../layouts/StoreLayout.astro';
 import { createClient } from '@supabase/supabase-js';
 import { formatPriceEURFromCents } from '../../../lib/price';
+import { getLangFromCookie } from '../../../lib/i18n';
 
 export const prerender = false;
 
 Astro.response.headers.set('Cache-Control', 'no-store, max-age=0');
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 
 type OrderRow = {
 	id: string;
@@ -22,7 +26,7 @@ const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 const anonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !anonKey) {
-	throw new Error('Supabase no está configurado');
+	throw new Error(lang === 'en' ? 'Supabase is not configured' : 'Supabase no está configurado');
 }
 
 const sb = createClient(supabaseUrl, anonKey, {
@@ -47,30 +51,50 @@ const { data, error: ordersError } = await (sb as any)
 	.order('created_at', { ascending: false });
 
 if (ordersError) {
-	error = ordersError.message || 'Error cargando pedidos';
+	error = ordersError.message || (lang === 'en' ? 'Error loading orders' : 'Error cargando pedidos');
 } else {
 	orders = data ?? [];
 }
 
 const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
+const formatOrderStatus = (status: string): string => {
+	if (lang === 'en') {
+		if (status === 'paid') return 'Paid';
+		if (status === 'pending') return 'Pending';
+		if (status === 'refunded') return 'Refunded';
+		if (status === 'cancelled') return 'Cancelled';
+		if (status === 'shipped') return 'Shipped';
+		if (status === 'test') return 'Test';
+		return status;
+	}
+
+	// es
+	if (status === 'paid') return 'Pagado';
+	if (status === 'pending') return 'Pendiente';
+	if (status === 'refunded') return 'Reembolsado';
+	if (status === 'cancelled') return 'Cancelado';
+	if (status === 'shipped') return 'Enviado';
+	if (status === 'test') return 'Test';
+	return status;
+};
 ---
 
-<StoreLayout title="Mis pedidos - Fashion Store">
+<StoreLayout title={`${lang === 'en' ? 'My orders' : 'Mis pedidos'} - Fashion Store`}>
 	<!-- Breadcrumb -->
 	<div class="container" style="padding-top: 2rem;">
 		<nav style="font-size: 0.75rem; color: #9ca3af;">
-			<a href="/" style="transition: color 0.2s;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#9ca3af'">Home</a>
+			<a href="/" style="transition: color 0.2s;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#9ca3af'">{lang === 'en' ? 'Home' : 'Inicio'}</a>
 			<span style="margin: 0 0.5rem;">/</span>
-			<a href="/cuenta" style="transition: color 0.2s;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#9ca3af'">Mi cuenta</a>
+			<a href="/cuenta" style="transition: color 0.2s;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#9ca3af'">{lang === 'en' ? 'My account' : 'Mi cuenta'}</a>
 			<span style="margin: 0 0.5rem;">/</span>
-			<span style="color: #111;">Pedidos</span>
+			<span style="color: #111;">{lang === 'en' ? 'Orders' : 'Pedidos'}</span>
 		</nav>
 	</div>
 
 	<section style="padding: 2rem 0 4rem;">
 		<div class="container">
 			<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 2rem;">
-				Mis pedidos
+				{lang === 'en' ? 'My orders' : 'Mis pedidos'}
 			</h1>
 
 			{error && <div class="alert alert-error" style="margin-bottom: 1.5rem;">{error}</div>}
@@ -78,9 +102,9 @@ const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 			{!error && orders.length === 0 && (
 				<div style="text-align: center; padding: 3rem 0; border: 1px solid #e5e7eb;">
 					<p style="font-size: 0.875rem; color: #9ca3af; margin: 0 0 1.5rem;">
-						No tienes pedidos todavia
+						{lang === 'en' ? 'You do not have any orders yet' : 'No tienes pedidos todavía'}
 					</p>
-					<a href="/productos" class="btn-primary">Ver productos</a>
+					<a href="/productos" class="btn-primary">{lang === 'en' ? 'View products' : 'Ver productos'}</a>
 				</div>
 			)}
 
@@ -88,10 +112,10 @@ const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 				<div>
 					<!-- Table Header -->
 					<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 80px; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #111; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280;">
-						<div>Pedido</div>
-						<div>Fecha</div>
-						<div style="text-align: right;">Total</div>
-						<div>Estado</div>
+						<div>{lang === 'en' ? 'Order' : 'Pedido'}</div>
+						<div>{lang === 'en' ? 'Date' : 'Fecha'}</div>
+						<div style="text-align: right;">{lang === 'en' ? 'Total' : 'Total'}</div>
+						<div>{lang === 'en' ? 'Status' : 'Estado'}</div>
 						<div></div>
 					</div>
 
@@ -103,12 +127,12 @@ const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 							<div style="font-size: 0.8125rem; text-align: right;">{formatPrice(o.total_cents)}</div>
 							<div>
 								<span style="font-size: 0.6875rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 0.25rem 0.5rem; background: #f5f5f5;">
-									{o.status}
+									{formatOrderStatus(o.status)}
 								</span>
 							</div>
 							<div style="text-align: right;">
 								<a href={`/cuenta/pedidos/${encodeURIComponent(o.id)}`} style="font-size: 0.75rem; color: #111; text-decoration: underline;">
-									Ver
+									{lang === 'en' ? 'View' : 'Ver'}
 								</a>
 								{o.status === 'paid' && o.invoice_token && (
 									<div style="margin-top: 0.5rem;">
@@ -116,7 +140,7 @@ const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 											href={`/api/orders/${encodeURIComponent(o.id)}/invoice.pdf?token=${encodeURIComponent(o.invoice_token)}`}
 											style="font-size: 0.75rem; color: #111; text-decoration: underline;"
 										>
-											Descargar factura (PDF)
+											{lang === 'en' ? 'Download invoice (PDF)' : 'Descargar factura (PDF)'}
 										</a>
 									</div>
 								)}

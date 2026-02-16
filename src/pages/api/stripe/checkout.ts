@@ -145,10 +145,6 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 			userEmail = userData.user?.email ?? null;
 		}
 
-		if (!customerUserId) {
-			return jsonError(401, 'Debes iniciar sesión para comprar');
-		}
-
 		const customerEmail = email || userEmail || undefined;
 
 		const rpcPayload = {
@@ -266,7 +262,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 				client_reference_id: row.order_id,
 				metadata: {
 					order_id: row.order_id,
-					user_id: customerUserId,
+					...(customerUserId ? { user_id: customerUserId } : {}),
 				},
 				locale: 'es',
 				shipping_address_collection: { allowed_countries: ['ES'] },

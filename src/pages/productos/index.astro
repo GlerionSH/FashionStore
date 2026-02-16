@@ -2,21 +2,25 @@
 import StoreLayout from '../../layouts/StoreLayout.astro';
 import { supabase } from '../../lib/supabase';
 import AddToCartButton from '../../components/islands/AddToCartButton.tsx';
-import CartPanel from '../../components/islands/CartPanel.tsx';
 import FlashOfferModal from '../../components/FlashOfferModal.astro';
 import { applyPercentDiscountCents, getActiveFlashOffer } from '../../lib/flashOffer';
 import { formatPriceEURFromCents } from '../../lib/price';
 import { resolveHomeImage } from '../../lib/brand';
+import { getLangFromCookie, getProductName, getCategoryName } from '../../lib/i18n';
 
 type CategoryRow = {
 	id: string;
 	name: string;
+	name_es?: string | null;
+	name_en?: string | null;
 	slug: string;
 };
 
 type ProductRow = {
 	id: string;
 	name: string;
+	name_es?: string | null;
+	name_en?: string | null;
 	slug: string;
 	price_cents: number;
 	stock: number;
@@ -24,22 +28,42 @@ type ProductRow = {
 	images: unknown;
 	is_active: boolean;
 	sizes?: string[];
+	description_es?: string | null;
+	description_en?: string | null;
 };
 
 const sb = supabase as any;
 
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+
+const searchQueryRaw = Astro.url.searchParams.get('q') || '';
+const searchQuery = searchQueryRaw.trim();
+
+const collectionSlugParam = Astro.url.searchParams.get('collection');
+const collectionSlug = collectionSlugParam ? decodeURIComponent(collectionSlugParam) : null;
+
 const { data: categoriesData, error: categoriesError } = await sb
 	.from('fs_categories')
-	.select('id,name,slug');
+	.select('id,name,name_es,name_en,slug');
 
 if (categoriesError) {
 	console.error('[productos] categoriesError:', categoriesError);
 }
 
-const { data: productsData, error: productsError } = await sb
+let productsQuery = sb
 	.from('fs_products')
-	.select('id,name,slug,price_cents,stock,category_id,images,is_active,sizes')
+	.select('id,name,name_es,name_en,slug,price_cents,stock,category_id,images,is_active,sizes,description_es,description_en')
 	.eq('is_active', true);
+
+if (searchQuery) {
+	const pattern = `%${searchQuery}%`;
+	productsQuery = productsQuery.or(
+		`name_es.ilike.${pattern},name_en.ilike.${pattern},description_es.ilike.${pattern},description_en.ilike.${pattern}`,
+	);
+}
+
+const { data: productsData, error: productsError } = await productsQuery;
 
 if (productsError) {
 	console.error('[productos] productsError:', productsError);
@@ -48,9 +72,9 @@ if (productsError) {
 const categories: CategoryRow[] = categoriesData ?? [];
 const products: ProductRow[] = productsData ?? [];
 
-const categoriesById = new Map<string, { name: string; slug: string }>();
+const categoriesById = new Map<string, CategoryRow>();
 for (const category of categories) {
-	categoriesById.set(category.id, { name: category.name, slug: category.slug });
+	categoriesById.set(category.id, category);
 }
 
 const selectedCategorySlugParam = Astro.url.searchParams.get('cat');
@@ -59,9 +83,41 @@ const selectedCategory = selectedCategorySlug
 	? categories.find((c) => c.slug === selectedCategorySlug) ?? null
 	: null;
 
-const filteredProducts = selectedCategory
+let allowedProductIds: Set<string> | null = null;
+
+if (collectionSlug) {
+	const { data: collectionRow, error: collectionError } = await sb
+		.from('fs_collections')
+		.select('id,slug')
+		.eq('slug', collectionSlug)
+		.maybeSingle();
+
+	if (collectionError) {
+		console.error('[productos] collectionError:', collectionError);
+	}
+
+	if (collectionRow) {
+		const { data: cpData, error: cpError } = await sb
+			.from('fs_collection_products')
+			.select('product_id')
+			.eq('collection_id', collectionRow.id);
+
+		if (cpError) {
+			console.error('[productos] collectionProductsError:', cpError);
+		}
+
+		const ids = (cpData ?? []).map((row: any) => row.product_id as string);
+		allowedProductIds = new Set(ids);
+	}
+}
+
+let filteredProducts = selectedCategory
 	? products.filter((p) => p.category_id === selectedCategory.id)
 	: products;
+
+if (allowedProductIds) {
+	filteredProducts = filteredProducts.filter((p) => allowedProductIds!.has(p.id));
+}
 
 const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 
@@ -71,7 +127,7 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 const productsHeroImg = resolveHomeImage('PUBLIC_PRODUCTS_HERO_URL', '/banner.png');
 ---
 
-<StoreLayout title="Productos - Fashion Store">
+<StoreLayout title={`${lang === 'en' ? 'Products' : 'Productos'} - Fashion Store`}>
 	<section class="relative h-36 md:h-44 overflow-hidden border-b border-gray-200 bg-gray-100">
 		{productsHeroImg ? (
 			<>
@@ -94,40 +150,59 @@ const productsHeroImg = resolveHomeImage('PUBLIC_PRODUCTS_HERO_URL', '/banner.pn
 
 	<section style="padding: 2rem 0 4rem;">
 		<div class="container">
-			<!-- Filters + Sort -->
-			<div style="display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2rem;">
-				<div class="filters-chips">
-					<a
-						href="/productos"
-						class={selectedCategory ? 'chip chip--inactive fx-hover' : 'chip chip--active fx-hover'}
+			<!-- Filters + Search + Sort -->
+			<div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;">
+				<div style="display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;">
+					<div class="filters-chips">
+						<a
+							href="/productos"
+							class={selectedCategory ? 'chip chip--inactive fx-hover' : 'chip chip--active fx-hover'}
+						>
+							{lang === 'en' ? 'All' : 'Todos'}
+						</a>
+						{categories.map((category) => {
+							const active = selectedCategory?.id === category.id;
+							return (
+								<a
+									href={`/productos?cat=${encodeURIComponent(category.slug)}`}
+									class={active ? 'chip chip--active fx-hover' : 'chip chip--inactive fx-hover'}
+								>
+									{getCategoryName(category, lang)}
+								</a>
+							);
+						})}
+					</div>
+					
+					<form
+						method="GET"
+						action="/productos"
+						style="display: flex; align-items: center; gap: 0.75rem;"
 					>
-						Todos
-					</a>
-					{categories.map((category) => {
-						const active = selectedCategory?.id === category.id;
-						return (
-							<a
-								href={`/productos?cat=${encodeURIComponent(category.slug)}`}
-								class={active ? 'chip chip--active fx-hover' : 'chip chip--inactive fx-hover'}
-							>
-								{category.name}
-							</a>
-						);
-					})}
+						<input
+							type="search"
+							name="q"
+							value={searchQuery}
+							class="form-input"
+							placeholder={lang === 'en' ? 'Search products' : 'Buscar productos'}
+							style="max-width: 260px;"
+						/>
+						{selectedCategorySlug && <input type="hidden" name="cat" value={selectedCategorySlug} />}
+						{collectionSlug && <input type="hidden" name="collection" value={collectionSlug} />}
+					</form>
 				</div>
 
 				<div class="sort-row">
 					<label for="sort" style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #6b7280;">
-						Ordenar por
+						{lang === 'en' ? 'Sort by' : 'Ordenar por'}
 					</label>
 					<select
 						id="sort"
 						class="premium-select fx-hover"
 					>
-						<option value="relevance">Relevancia</option>
-						<option value="price-asc">Precio asc</option>
-						<option value="price-desc">Precio desc</option>
-						<option value="stock">Stock</option>
+						<option value="relevance">{lang === 'en' ? 'Relevance' : 'Relevancia'}</option>
+						<option value="price-asc">{lang === 'en' ? 'Price: low to high' : 'Precio asc'}</option>
+						<option value="price-desc">{lang === 'en' ? 'Price: high to low' : 'Precio desc'}</option>
+						<option value="stock">{lang === 'en' ? 'Stock' : 'Stock'}</option>
 					</select>
 				</div>
 			</div>
@@ -135,7 +210,7 @@ const productsHeroImg = resolveHomeImage('PUBLIC_PRODUCTS_HERO_URL', '/banner.pn
 			{filteredProducts.length === 0 && !(categoriesError || productsError) && (
 				<div style="text-align: center; padding: 3rem 0; border: 1px solid #e5e7eb;">
 					<p style="font-size: 0.875rem; color: #9ca3af; margin: 0;">
-						No hay productos para mostrar.
+						{lang === 'en' ? 'No products to show.' : 'No hay productos para mostrar.'}
 					</p>
 				</div>
 			)}
@@ -150,6 +225,7 @@ const productsHeroImg = resolveHomeImage('PUBLIC_PRODUCTS_HERO_URL', '/banner.pn
 					const images = Array.isArray(imagesRaw) ? (imagesRaw as string[]) : [];
 					const imageUrl = images.length > 0 ? images[0] : undefined;
 					const detailHref = `/productos/${encodeURIComponent(product.slug)}`;
+					const displayName = getProductName(product, lang);
 
 					return (
 						<article
@@ -164,17 +240,17 @@ const productsHeroImg = resolveHomeImage('PUBLIC_PRODUCTS_HERO_URL', '/banner.pn
 										{imageUrl ? (
 											<img
 												src={imageUrl}
-												alt={product.name}
+												alt={displayName}
 												loading="lazy"
 												class="fx-img-zoom"
 											/>
 										) : (
 											<div class="product-card__image-empty">
 												<span class="product-card__image-empty-text">
-													Imagen no disponible
+													{lang === 'en' ? 'Image not available' : 'Imagen no disponible'}
 												</span>
 											</div>
-									)}
+										)}
 									</div>
 								</a>
 							</div>
@@ -182,12 +258,12 @@ const productsHeroImg = resolveHomeImage('PUBLIC_PRODUCTS_HERO_URL', '/banner.pn
 							<div style="display: flex; flex-direction: column; gap: 0.5rem;">
 								{category && (
 									<p style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af; margin: 0;">
-										{category.name}
+										{getCategoryName(category, lang)}
 									</p>
 								)}
 								<h3 style="font-size: 1rem; font-weight: 400; margin: 0;">
 									<a href={detailHref} style="color: #111; text-decoration: none;">
-										{product.name}
+										{displayName}
 									</a>
 								</h3>
 								{(() => {
@@ -218,13 +294,13 @@ const productsHeroImg = resolveHomeImage('PUBLIC_PRODUCTS_HERO_URL', '/banner.pn
 										href={detailHref}
 										class="btn-primary w-full block text-center"
 									>
-										Ver producto
+										{lang === 'en' ? 'View product' : 'Ver producto'}
 									</a>
 								) : (
 									<AddToCartButton
 										client:load
 										productId={product.id}
-										name={product.name}
+										name={displayName}
 										priceCents={product.price_cents}
 										stock={product.stock}
 										imageUrl={imageUrl}
@@ -240,9 +316,9 @@ const productsHeroImg = resolveHomeImage('PUBLIC_PRODUCTS_HERO_URL', '/banner.pn
 
 	<script>
 		(() => {
-			const grid = document.getElementById('products-grid') as HTMLElement | null;
-			const select = document.getElementById('sort') as HTMLSelectElement | null;
-			if (!grid || !select) return;
+			const grid = document.getElementById('products-grid');
+			const select = document.getElementById('sort');
+			if (!(grid instanceof HTMLElement) || !(select instanceof HTMLSelectElement)) return;
 
 			try {
 				const params = new URLSearchParams(window.location.search);
@@ -274,7 +350,6 @@ const productsHeroImg = resolveHomeImage('PUBLIC_PRODUCTS_HERO_URL', '/banner.pn
 		})();
 	</script>
 
-	<CartPanel client:only="preact" />
 	<FlashOfferModal />
 </StoreLayout>
 
@@ -283,13 +358,15 @@ const productsHeroImg = resolveHomeImage('PUBLIC_PRODUCTS_HERO_URL', '/banner.pn
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.75rem;
+		flex: 1;
+		min-width: 0;
 	}
 
 	.chip {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		padding: 0.625rem 1rem;
+		padding: 0.5625rem 0.9375rem;
 		border-radius: 999px;
 		font-size: 0.6875rem;
 		font-weight: 500;

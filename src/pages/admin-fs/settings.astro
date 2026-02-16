@@ -1,10 +1,14 @@
 ---
 import AdminFSLayout from '../../layouts/AdminFSLayout.astro';
 import { getSupabaseAdmin } from '../../lib/database/supabaseServer';
+import { getLangFromCookie } from '../../lib/i18n';
 
 export const prerender = false;
 
 const sb = getSupabaseAdmin() as any;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 
 let error: string | null = null;
 
@@ -17,7 +21,7 @@ if (Astro.request.method === 'POST') {
 		.upsert({ singleton: true, flash_offers_enabled: enabled }, { onConflict: 'singleton' });
 
 	if (upsertError) {
-		error = upsertError.message || 'No se pudo actualizar settings';
+		error = upsertError.message || (lang === 'en' ? 'Could not update settings' : 'No se pudo actualizar settings');
 	} else {
 		return Astro.redirect('/admin-fs/settings');
 	}
@@ -30,28 +34,28 @@ const { data: settingsData, error: settingsError } = await sb
 	.maybeSingle();
 
 if (settingsError) {
-	error = settingsError.message || 'No se pudo cargar settings';
+	error = settingsError.message || (lang === 'en' ? 'Could not load settings' : 'No se pudo cargar settings');
 }
 
 const flashEnabled = !!settingsData?.flash_offers_enabled;
 ---
 
-<AdminFSLayout title="Admin FashionStore - Settings">
+<AdminFSLayout title={lang === 'en' ? 'Admin FashionStore - Settings' : 'Admin FashionStore - Configuración'}>
 	<section style="padding: 3rem 0 4rem;">
 		<div class="container">
 			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
 				<div>
 					<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.75rem;">
-						Settings
+						{lang === 'en' ? 'Settings' : 'Configuración'}
 					</p>
 					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
-						Settings
+						{lang === 'en' ? 'Settings' : 'Configuración'}
 					</h1>
 					<p class="helper-text" style="margin-top: 0.75rem; max-width: 640px;">
-						Configura opciones de FashionStore
+						{lang === 'en' ? 'Configure FashionStore options' : 'Configura opciones de FashionStore'}
 					</p>
 				</div>
-				<a class="btn-secondary" href="/admin-fs">Volver</a>
+				<a class="btn-secondary" href="/admin-fs">{lang === 'en' ? 'Back' : 'Volver'}</a>
 			</div>
 
 			{error && <div class="alert alert-error" style="margin-top: 1.5rem;">{error}</div>}
@@ -61,8 +65,8 @@ const flashEnabled = !!settingsData?.flash_offers_enabled;
 					<div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
 						<div>
 							<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Home</div>
-							<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">Ofertas Flash</div>
-							<div class="helper-text" style="margin-top: 0.5rem;">Controla la sección de ofertas en la página principal</div>
+							<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">{lang === 'en' ? 'Flash Offers' : 'Ofertas Flash'}</div>
+							<div class="helper-text" style="margin-top: 0.5rem;">{lang === 'en' ? 'Control the offers section on the home page' : 'Controla la sección de ofertas en la página principal'}</div>
 						</div>
 						<label style="display: inline-flex; align-items: center; gap: 0.75rem;">
 							<input type="checkbox" name="flash_offers_enabled" checked={flashEnabled} />
@@ -70,7 +74,7 @@ const flashEnabled = !!settingsData?.flash_offers_enabled;
 						</label>
 					</div>
 				</div>
-				<button class="btn-primary" type="submit" style="width: fit-content;">Guardar</button>
+				<button class="btn-primary" type="submit" style="width: fit-content;">{lang === 'en' ? 'Save' : 'Guardar'}</button>
 			</form>
 		</div>
 	</section>

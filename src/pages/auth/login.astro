@@ -1,6 +1,7 @@
 ---
 import StoreLayout from '../../layouts/StoreLayout.astro';
 import { createClient } from '@supabase/supabase-js';
+import { getLangFromCookie } from '../../lib/i18n';
 export const prerender = false;
 
 let error: string | null = null;
@@ -11,18 +12,21 @@ const nextParam = Astro.url.searchParams.get('next');
 const safeNext =
 	nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/cuenta';
 
+const raw = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(raw);
+
 if (Astro.request.method === 'POST') {
 	const form = await Astro.request.formData();
 	const email = String(form.get('email') ?? '').trim();
 	const password = String(form.get('password') ?? '');
 
 	if (!email || !password) {
-		error = 'Email y contraseña son requeridos';
+		error = lang === 'en' ? 'Email and password are required' : 'Email y contraseña son requeridos';
 	} else {
 		const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 		const anonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 		if (!supabaseUrl || !anonKey) {
-			error = 'Supabase no está configurado';
+			error = lang === 'en' ? 'Supabase is not configured' : 'Supabase no está configurado';
 		} else {
 			const sb = createClient(supabaseUrl, anonKey, {
 				auth: { persistSession: false, autoRefreshToken: false },
@@ -34,7 +38,7 @@ if (Astro.request.method === 'POST') {
 			});
 
 			if (signInError || !data.session) {
-				error = signInError?.message || 'No se pudo iniciar sesión';
+				error = signInError?.message || (lang === 'en' ? 'Could not log in' : 'No se pudo iniciar sesión');
 			} else {
 				Astro.cookies.set('sb-access-token', data.session.access_token, {
 					path: '/',
@@ -96,32 +100,36 @@ if (Astro.request.method === 'POST') {
 }
 ---
 
-<StoreLayout title="Iniciar sesion - Fashion Store" showAuth={false}>
+<StoreLayout title={`${lang === 'en' ? 'Log in' : 'Iniciar sesión'} - Fashion Store`} showAuth={false}>
 	<section style="padding: 4rem 0;">
 		<div class="container container-sm">
 			<div style="text-align: center; margin-bottom: 2.5rem;">
 				<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
-					Iniciar sesion
+					{lang === 'en' ? 'Log in' : 'Iniciar sesión'}
 				</h1>
 				<p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.75rem;">
-					Accede a tu cuenta para ver tus pedidos
+					{lang === 'en'
+						? 'Access your account to view your orders'
+						: 'Accede a tu cuenta para ver tus pedidos'}
 				</p>
 			</div>
 
 			{safeNext === '/carrito' && (
 				<div style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e5e7eb; text-align: center;">
 					<p style="font-size: 0.8125rem; color: #6b7280; margin: 0;">
-						Inicia sesion para finalizar tu compra
+						{lang === 'en'
+							? 'Log in to complete your purchase'
+							: 'Inicia sesión para finalizar tu compra'}
 					</p>
 				</div>
 			)}
 
-			{error && (
-				<div class="alert alert-error" style="margin-bottom: 1.5rem;">{error}</div>
-			)}
+			{error && <div class="alert alert-error" style="margin-bottom: 1.5rem;">{error}</div>}
 			{showResetBanner && (
 				<div class="alert alert-success" style="margin-bottom: 1.5rem;">
-					Contraseña actualizada. Inicia sesión con la nueva.
+					{lang === 'en'
+						? 'Password updated. Log in with your new password.'
+						: 'Contraseña actualizada. Inicia sesión con la nueva.'}
 				</div>
 			)}
 
@@ -131,29 +139,39 @@ if (Astro.request.method === 'POST') {
 					<input class="form-input" type="email" id="email" name="email" required />
 				</div>
 				<div>
-					<label for="password" class="form-label">Contraseña</label>
+					<label for="password" class="form-label">
+						{lang === 'en' ? 'Password' : 'Contraseña'}
+					</label>
 					<input class="form-input" type="password" id="password" name="password" required />
 				</div>
 				<button class="btn-primary" type="submit" style="width: 100%; margin-top: 0.5rem;">
-					Entrar
+					{lang === 'en' ? 'Log in' : 'Entrar'}
 				</button>
 			</form>
 
 			<div style="margin-top: 1rem; text-align: center; font-size: 0.8125rem;">
 				<a href="/auth/forgot-password" style="color: #111; text-decoration: underline;">
-					¿Olvidaste tu contraseña?
+					{lang === 'en' ? 'Forgot your password?' : '¿Olvidaste tu contraseña?'}
 				</a>
 			</div>
 
 			<div style="margin-top: 2rem; text-align: center; font-size: 0.8125rem;">
 				<p style="color: #6b7280; margin: 0 0 0.5rem;">
-					¿No tienes cuenta?
-					<a href="/auth/register" style="color: #111; text-decoration: underline; margin-left: 0.25rem;">Crear cuenta</a>
+					{lang === 'en' ? "Don't have an account?" : '¿No tienes cuenta?'}
+					<a
+						href="/auth/register"
+						style="color: #111; text-decoration: underline; margin-left: 0.25rem;"
+					>
+						{lang === 'en' ? 'Create account' : 'Crear cuenta'}
+					</a>
 				</p>
 				<p style="margin: 0;">
-					<a href="/" style="color: #9ca3af; text-decoration: underline;">Volver al inicio</a>
+					<a href="/" style="color: #9ca3af; text-decoration: underline;">
+						{lang === 'en' ? 'Back to home' : 'Volver al inicio'}
+					</a>
 				</p>
 			</div>
 		</div>
 	</section>
 </StoreLayout>
+

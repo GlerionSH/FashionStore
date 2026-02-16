@@ -21,7 +21,9 @@ export const getHeroImage = (): HomeImageConfig => ({
 	fallbackGradient: 'linear-gradient(135deg, #f5f5f5 0%, #e5e7eb 100%)',
 });
 
-export const getCategoryImages = (flashOffersEnabled: boolean): CategoryBlockConfig[] => {
+export const getCategoryImages = (flashOffersEnabled: boolean, lang: 'en' | 'es' = 'es'): CategoryBlockConfig[] => {
+	const isEn = lang === 'en';
+
 	const categories: CategoryBlockConfig[] = [
 		{
 			href: '/productos',
@@ -30,7 +32,7 @@ export const getCategoryImages = (flashOffersEnabled: boolean): CategoryBlockCon
 				alt: 'New In',
 				fallbackColor: '#e5e7eb',
 			},
-			subtitle: 'Categoria',
+			subtitle: isEn ? 'Category' : 'Categoria',
 			title: 'New In',
 		},
 		{
@@ -40,7 +42,7 @@ export const getCategoryImages = (flashOffersEnabled: boolean): CategoryBlockCon
 				alt: 'Basics',
 				fallbackColor: '#d1d5db',
 			},
-			subtitle: 'Categoria',
+			subtitle: isEn ? 'Category' : 'Categoria',
 			title: 'Basics',
 		},
 	];
@@ -50,22 +52,22 @@ export const getCategoryImages = (flashOffersEnabled: boolean): CategoryBlockCon
 			href: '/productos?flash=1',
 			image: {
 				src: resolveHomeImage('PUBLIC_HOME_CAT_FLASH_URL', '/cat-flash.jpg'),
-				alt: 'Ofertas Flash',
+				alt: isEn ? 'Flash offers' : 'Ofertas Flash',
 				fallbackColor: '#111',
 			},
-			subtitle: 'Promocion',
-			title: 'Ofertas Flash',
+			subtitle: isEn ? 'Promotion' : 'Promocion',
+			title: isEn ? 'Flash offers' : 'Ofertas Flash',
 		});
 	} else {
 		categories.push({
 			href: '/productos',
 			image: {
 				src: resolveHomeImage('PUBLIC_HOME_CAT_COLLECTION_URL', '/cat-collection.jpg'),
-				alt: 'Coleccion',
+				alt: isEn ? 'Collection' : 'Coleccion',
 				fallbackColor: '#9ca3af',
 			},
-			subtitle: 'Categoria',
-			title: 'Coleccion',
+			subtitle: isEn ? 'Category' : 'Categoria',
+			title: isEn ? 'Collection' : 'Coleccion',
 		});
 	}
 

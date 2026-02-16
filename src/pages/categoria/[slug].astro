@@ -1,20 +1,24 @@
 ---
-import Layout from '../../layouts/Layout.astro';
+import StoreLayout from '../../layouts/StoreLayout.astro';
 import { supabase } from '../../lib/supabase';
 import AddToCartButton from '../../components/islands/AddToCartButton.tsx';
-import CartPanel from '../../components/islands/CartPanel.tsx';
 import { applyPercentDiscountCents, getActiveFlashOffer } from '../../lib/flashOffer';
 import { formatPriceEURFromCents } from '../../lib/price';
+import { getLangFromCookie, getCategoryName, getProductName } from '../../lib/i18n';
 
 type CategoryRow = {
 	id: string;
 	name: string;
+	name_es?: string | null;
+	name_en?: string | null;
 	slug: string;
 };
 
 type ProductRow = {
 	id: string;
 	name: string;
+	name_es?: string | null;
+	name_en?: string | null;
 	slug: string;
 	price_cents: number;
 	stock: number;
@@ -29,9 +33,12 @@ const decodedCategorySlug = decodeURIComponent(categorySlug);
 
 const sb = supabase as any;
 
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+
 const { data: categoryData, error: categoryError } = await sb
 	.from('fs_categories')
-	.select('id,name,slug')
+	.select('id,name,name_es,name_en,slug')
 	.eq('slug', decodedCategorySlug)
 	.maybeSingle();
 
@@ -47,7 +54,7 @@ let productsError: unknown = null;
 if (category) {
 	const { data: productsData, error } = await sb
 		.from('fs_products')
-		.select('id,name,slug,price_cents,stock,category_id,images,is_active')
+		.select('id,name,name_es,name_en,slug,price_cents,stock,category_id,images,is_active')
 		.eq('category_id', category.id)
 		.eq('is_active', true)
 		;
@@ -68,23 +75,44 @@ const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 
 const activeOffer = await getActiveFlashOffer(sb);
 const discountPercent = activeOffer?.discount_percent ?? 0;
+const categoryDisplayName = category ? getCategoryName(category, lang) : null;
+
+const pageTitle = `${
+	categoryDisplayName || (lang === 'en' ? 'Category' : 'Categoría')
+} - Fashion Store`;
+
+const headingText = category
+	? `${lang === 'en' ? 'Category' : 'Categoría'}: ${categoryDisplayName ?? ''}`
+	: lang === 'en'
+	? 'Category not found'
+	: 'Categoría no encontrada';
+
+const noProductsText =
+	lang === 'en'
+		? 'No products in this category.'
+		: 'No hay productos en esta categoría.';
+
+const notFoundText =
+	lang === 'en' ? 'Category not found.' : 'Categoría no encontrada.';
 ---
 
-<Layout title={`Fashion Store - ${category?.name ?? 'Categoría'}`} showNav={false}>
+<StoreLayout title={pageTitle}>
 	<section class="card" style="max-width: 1200px; margin: 2rem auto;">
-		<a class="btn-secondary" href="/productos">Volver a productos</a>
+		<a class="btn-secondary" href="/productos">
+			{lang === 'en' ? 'Back to products' : 'Volver a productos'}
+		</a>
 		<h1 style="margin-top: 1rem;">
-			Categoría: {category?.name ?? 'Categoría no encontrada'}
+			{headingText}
 		</h1>
-		{!category && !categoryError && <p class="helper-text">Categoría no encontrada.</p>}
+		{!category && !categoryError && <p class="helper-text">{notFoundText}</p>}
 
 		<div
 			style="margin-top: 1.5rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;"
 		>
-			{category && products.length === 0 && !productsError && <p>No hay productos en esta categoría.</p>}
+			{category && products.length === 0 && !productsError && <p>{noProductsText}</p>}
 			{products.map((product) => (
 				<article class="card">
-					<h3>{product.name}</h3>
+					<h3>{getProductName(product, lang)}</h3>
 					<div class="helper-text">Stock: {product.stock}</div>
 					{(() => {
 						const discounted = discountPercent > 0 ? applyPercentDiscountCents(product.price_cents, discountPercent) : product.price_cents;
@@ -106,7 +134,7 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 					<AddToCartButton
 						client:load
 						productId={product.id}
-						name={product.name}
+						name={getProductName(product, lang)}
 						priceCents={product.price_cents}
 						stock={product.stock}
 					/>
@@ -114,5 +142,4 @@ const discountPercent = activeOffer?.discount_percent ?? 0;
 			))}
 		</div>
 	</section>
-	<CartPanel client:only="preact" />
-</Layout>
+</StoreLayout>

@@ -2,10 +2,14 @@
 import AdminFSLayout from '../../layouts/AdminFSLayout.astro';
 import { getSupabaseAdmin } from '../../lib/database/supabaseServer';
 import { formatPriceEURFromCents } from '../../lib/price';
+import { getLangFromCookie } from '../../lib/i18n';
 
 export const prerender = false;
 
 const sb = getSupabaseAdmin() as any;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 
 let error: string | null = null;
 
@@ -83,7 +87,9 @@ if (statusFilter) {
 const { data: returnsData, error: returnsError } = await query;
 
 if (returnsError) {
-	error = returnsError.message || 'Error cargando devoluciones';
+	error =
+		returnsError.message ||
+		(lang === 'en' ? 'Error loading returns' : 'Error cargando devoluciones');
 }
 
 const returns: ReturnRow[] = returnsData ?? [];
@@ -99,38 +105,40 @@ const statusColors: Record<string, string> = {
 };
 ---
 
-<AdminFSLayout title="Admin FashionStore - Devoluciones">
+<AdminFSLayout title={lang === 'en' ? 'Admin FashionStore - Returns' : 'Admin FashionStore - Devoluciones'}>
 	<section style="padding: 3rem 0 4rem;">
 		<div class="container">
 			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
 				<div>
 					<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.75rem;">
-						Devoluciones
+						{lang === 'en' ? 'Returns' : 'Devoluciones'}
 					</p>
 					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
-						Devoluciones
+						{lang === 'en' ? 'Returns' : 'Devoluciones'}
 					</h1>
 					<p class="helper-text" style="margin-top: 0.75rem; max-width: 640px;">
-						Gestiona solicitudes de devolución de clientes
+						{lang === 'en'
+							? 'Manage customer return requests'
+							: 'Gestiona solicitudes de devolución de clientes'}
 					</p>
 				</div>
-				<a class="btn-secondary" href="/admin-fs">Volver</a>
+				<a class="btn-secondary" href="/admin-fs">{lang === 'en' ? 'Back' : 'Volver'}</a>
 			</div>
 
 			<!-- Filters -->
 			<div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-				<a href="/admin-fs/devoluciones" class={`btn-secondary ${!statusFilter ? 'active' : ''}`} style={!statusFilter ? 'background: #111; color: #fff;' : ''}>Todas</a>
-				<a href="/admin-fs/devoluciones?status=requested" class={`btn-secondary ${statusFilter === 'requested' ? 'active' : ''}`} style={statusFilter === 'requested' ? 'background: #111; color: #fff;' : ''}>Pendientes</a>
-				<a href="/admin-fs/devoluciones?status=approved" class={`btn-secondary ${statusFilter === 'approved' ? 'active' : ''}`} style={statusFilter === 'approved' ? 'background: #111; color: #fff;' : ''}>Aprobadas</a>
-				<a href="/admin-fs/devoluciones?status=refunded" class={`btn-secondary ${statusFilter === 'refunded' ? 'active' : ''}`} style={statusFilter === 'refunded' ? 'background: #111; color: #fff;' : ''}>Reembolsadas</a>
-				<a href="/admin-fs/devoluciones?status=rejected" class={`btn-secondary ${statusFilter === 'rejected' ? 'active' : ''}`} style={statusFilter === 'rejected' ? 'background: #111; color: #fff;' : ''}>Rechazadas</a>
+				<a href="/admin-fs/devoluciones" class={`btn-secondary ${!statusFilter ? 'active' : ''}`} style={!statusFilter ? 'background: #111; color: #fff;' : ''}>{lang === 'en' ? 'All' : 'Todas'}</a>
+				<a href="/admin-fs/devoluciones?status=requested" class={`btn-secondary ${statusFilter === 'requested' ? 'active' : ''}`} style={statusFilter === 'requested' ? 'background: #111; color: #fff;' : ''}>{lang === 'en' ? 'Requested' : 'Pendientes'}</a>
+				<a href="/admin-fs/devoluciones?status=approved" class={`btn-secondary ${statusFilter === 'approved' ? 'active' : ''}`} style={statusFilter === 'approved' ? 'background: #111; color: #fff;' : ''}>{lang === 'en' ? 'Approved' : 'Aprobadas'}</a>
+				<a href="/admin-fs/devoluciones?status=refunded" class={`btn-secondary ${statusFilter === 'refunded' ? 'active' : ''}`} style={statusFilter === 'refunded' ? 'background: #111; color: #fff;' : ''}>{lang === 'en' ? 'Refunded' : 'Reembolsadas'}</a>
+				<a href="/admin-fs/devoluciones?status=rejected" class={`btn-secondary ${statusFilter === 'rejected' ? 'active' : ''}`} style={statusFilter === 'rejected' ? 'background: #111; color: #fff;' : ''}>{lang === 'en' ? 'Rejected' : 'Rechazadas'}</a>
 			</div>
 
 			{error && <div class="alert alert-error" style="margin-top: 1.5rem;">{error}</div>}
 
 			<div style="margin-top: 2rem;">
 				{returns.length === 0 && !returnsError && (
-					<p class="helper-text">No hay devoluciones</p>
+					<p class="helper-text">{lang === 'en' ? 'No returns' : 'No hay devoluciones'}</p>
 				)}
 
 				{returns.map((ret) => (
@@ -146,12 +154,12 @@ const statusColors: Record<string, string> = {
 									</span>
 								</div>
 								<p style="font-size: 0.875rem; margin: 0.75rem 0 0;">
-									<strong>Pedido:</strong> <a href={`/admin-fs/pedidos/${ret.order_id}`} style="color: #111; text-decoration: underline;">{ret.order_id.slice(0, 8)}...</a>
+									<strong>{lang === 'en' ? 'Order:' : 'Pedido:'}</strong> <a href={`/admin-fs/pedidos/${ret.order_id}`} style="color: #111; text-decoration: underline;">{ret.order_id.slice(0, 8)}...</a>
 									<span style="margin-left: 1rem; color: #6b7280;">{ret.fs_orders.email ?? '-'}</span>
 								</p>
 								{ret.reason && (
 									<p style="font-size: 0.8125rem; color: #6b7280; margin: 0.5rem 0 0;">
-										<strong>Motivo:</strong> {ret.reason}
+										<strong>{lang === 'en' ? 'Reason:' : 'Motivo:'}</strong> {ret.reason}
 									</p>
 								)}
 							</div>
@@ -167,12 +175,12 @@ const statusColors: Record<string, string> = {
 
 						<!-- Items -->
 						<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
-							<div style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin-bottom: 0.5rem;">Articulos</div>
+							<div style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ca3af; margin-bottom: 0.5rem;">{lang === 'en' ? 'Items' : 'Articulos'}</div>
 							{ret.fs_return_items.map((item) => (
 								<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; font-size: 0.875rem;">
 									<div>
-										{item.fs_order_items?.name ?? 'Producto'}
-										{item.fs_order_items?.size && <span style="color: #6b7280;"> - Talla {item.fs_order_items.size}</span>}
+										{item.fs_order_items?.name ?? (lang === 'en' ? 'Product' : 'Producto')}
+										{item.fs_order_items?.size && <span style="color: #6b7280;"> - {lang === 'en' ? 'Size' : 'Talla'} {item.fs_order_items.size}</span>}
 										<span style="color: #6b7280;"> x{item.qty}</span>
 									</div>
 									{(() => {
@@ -186,11 +194,11 @@ const statusColors: Record<string, string> = {
 										else if (Number.isFinite(paidLine) && orderQty > 0) unit = Math.round(Number(paidLine) / orderQty);
 										else if (Number.isFinite(baseLine) && orderQty > 0) unit = Math.floor(Number(baseLine) / orderQty);
 										return (
-											<div style="display: flex; align-items: baseline; gap: 1rem;">
-												<span style="font-size: 0.75rem; color: #6b7280;">{formatPrice(unit)} / ud</span>
-												<span>{formatPrice(item.line_total_cents)}</span>
-											</div>
-										);
+												<div style="display: flex; align-items: baseline; gap: 1rem;">
+													<span style="font-size: 0.75rem; color: #6b7280;">{formatPrice(unit)} / {lang === 'en' ? 'ea' : 'ud'}</span>
+													<span>{formatPrice(item.line_total_cents)}</span>
+												</div>
+											);
 									})()}
 								</div>
 							))}
@@ -200,10 +208,10 @@ const statusColors: Record<string, string> = {
 						{ret.status === 'requested' && (
 							<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; display: flex; gap: 0.75rem; flex-wrap: wrap;">
 								<button type="button" class="btn-primary action-approve" data-return-id={ret.id} style="padding: 0.5rem 1rem;">
-									Aprobar
+									{lang === 'en' ? 'Approve' : 'Aprobar'}
 								</button>
 								<button type="button" class="btn-secondary action-reject" data-return-id={ret.id} style="padding: 0.5rem 1rem;">
-									Rechazar
+									{lang === 'en' ? 'Reject' : 'Rechazar'}
 								</button>
 							</div>
 						)}
@@ -211,10 +219,12 @@ const statusColors: Record<string, string> = {
 						{ret.status === 'approved' && (
 							<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
 								<button type="button" class="btn-primary action-refund" data-return-id={ret.id} style="padding: 0.5rem 1rem;">
-									Ejecutar reembolso
+									{lang === 'en' ? 'Run refund' : 'Ejecutar reembolso'}
 								</button>
 								<span style="font-size: 0.75rem; color: #6b7280;">
-									{ret.fs_orders.stripe_payment_intent_id ? 'Se intentará reembolso vía Stripe' : 'Reembolso manual'}
+									{ret.fs_orders.stripe_payment_intent_id
+										? (lang === 'en' ? 'Will attempt refund via Stripe' : 'Se intentará reembolso vía Stripe')
+										: (lang === 'en' ? 'Manual refund' : 'Reembolso manual')}
 								</span>
 							</div>
 						)}
@@ -227,7 +237,7 @@ const statusColors: Record<string, string> = {
 
 						{ret.notes && (
 							<div style="margin-top: 0.75rem; font-size: 0.8125rem; color: #6b7280;">
-								<strong>Notas:</strong> {ret.notes}
+								<strong>{lang === 'en' ? 'Notes:' : 'Notas:'}</strong> {ret.notes}
 							</div>
 						)}
 
@@ -238,12 +248,12 @@ const statusColors: Record<string, string> = {
 		</div>
 	</section>
 
-	<script>
-		const handleAction = async (returnId: string, action: string, endpoint: string) => {
-			const card = document.querySelector<HTMLElement>(`[data-return-id="${returnId}"]`);
+	<script define:vars={{ lang }}>
+		const handleAction = async (returnId, action, endpoint) => {
+			const card = document.querySelector(`[data-return-id="${returnId}"]`);
 			if (!card) return;
 
-			const msgEl = card.querySelector<HTMLElement>('.action-message');
+			const msgEl = card.querySelector('.action-message');
 			if (msgEl) {
 				msgEl.style.display = 'none';
 			}
@@ -262,7 +272,7 @@ const statusColors: Record<string, string> = {
 				}
 
 				if (msgEl) {
-					msgEl.textContent = `Acción completada: ${data.status || action}`;
+					msgEl.textContent = `${lang === 'en' ? 'Action completed' : 'Acción completada'}: ${data.status || action}`;
 					msgEl.style.display = 'block';
 					msgEl.style.background = '#d1fae5';
 					msgEl.style.color = '#065f46';
@@ -270,9 +280,9 @@ const statusColors: Record<string, string> = {
 
 				// Reload after short delay
 				setTimeout(() => window.location.reload(), 1000);
-			} catch (err: any) {
+			} catch (err) {
 				if (msgEl) {
-					msgEl.textContent = err?.message || 'Error al procesar';
+					msgEl.textContent = err?.message || (lang === 'en' ? 'Error processing request' : 'Error al procesar');
 					msgEl.style.display = 'block';
 					msgEl.style.background = '#fee2e2';
 					msgEl.style.color = '#991b1b';
@@ -281,7 +291,7 @@ const statusColors: Record<string, string> = {
 		};
 
 		// Approve
-		document.querySelectorAll<HTMLButtonElement>('.action-approve').forEach((btn) => {
+		document.querySelectorAll('.action-approve').forEach((btn) => {
 			btn.addEventListener('click', () => {
 				const returnId = btn.dataset.returnId;
 				if (!returnId) return;
@@ -290,22 +300,22 @@ const statusColors: Record<string, string> = {
 		});
 
 		// Reject
-		document.querySelectorAll<HTMLButtonElement>('.action-reject').forEach((btn) => {
+		document.querySelectorAll('.action-reject').forEach((btn) => {
 			btn.addEventListener('click', () => {
 				const returnId = btn.dataset.returnId;
 				if (!returnId) return;
-				if (confirm('¿Rechazar esta devolución?')) {
+				if (confirm(lang === 'en' ? 'Reject this return?' : '¿Rechazar esta devolución?')) {
 					handleAction(returnId, 'reject', `/api/admin/returns/${returnId}/review`);
 				}
 			});
 		});
 
 		// Refund
-		document.querySelectorAll<HTMLButtonElement>('.action-refund').forEach((btn) => {
+		document.querySelectorAll('.action-refund').forEach((btn) => {
 			btn.addEventListener('click', () => {
 				const returnId = btn.dataset.returnId;
 				if (!returnId) return;
-				if (confirm('¿Ejecutar el reembolso? Esta acción no se puede deshacer.')) {
+				if (confirm(lang === 'en' ? 'Run the refund? This action cannot be undone.' : '¿Ejecutar el reembolso? Esta acción no se puede deshacer.')) {
 					handleAction(returnId, 'refund', `/api/admin/returns/${returnId}/refund`);
 				}
 			});

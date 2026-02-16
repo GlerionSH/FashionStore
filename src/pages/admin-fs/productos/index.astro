@@ -2,10 +2,14 @@
 import AdminFSLayout from '../../../layouts/AdminFSLayout.astro';
 import { getSupabaseAdmin } from '../../../lib/database/supabaseServer';
 import { formatPriceEURFromCents } from '../../../lib/price';
+import { getLangFromCookie, getProductName } from '../../../lib/i18n';
 
 export const prerender = false;
 
 const sb = getSupabaseAdmin() as any;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 
 let error: string | null = null;
 
@@ -26,7 +30,7 @@ if (Astro.request.method === 'POST') {
 
 const { data: productsData, error: productsError } = await sb
 	.from('fs_products')
-	.select('id,name,slug,price_cents,stock,is_active')
+	.select('id,name,name_es,name_en,slug,price_cents,stock,is_active')
 	.order('name', { ascending: true });
 
 if (productsError) {
@@ -36,6 +40,8 @@ if (productsError) {
 type ProductRow = {
 	id: string;
 	name: string;
+	name_es?: string | null;
+	name_en?: string | null;
 	slug: string;
 	price_cents: number;
 	stock: number;
@@ -47,24 +53,24 @@ const products: ProductRow[] = productsData ?? [];
 const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 ---
 
-<AdminFSLayout title="Admin FashionStore - Productos">
+<AdminFSLayout title={lang === 'en' ? 'Admin FashionStore - Products' : 'Admin FashionStore - Productos'}>
 	<section style="padding: 3rem 0 4rem;">
 		<div class="container">
 			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
 				<div>
 					<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.75rem;">
-						Catalogo
+						{lang === 'en' ? 'Catalog' : 'Catalogo'}
 					</p>
 					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
-						Productos
+						{lang === 'en' ? 'Products' : 'Productos'}
 					</h1>
 					<p class="helper-text" style="margin-top: 0.75rem; max-width: 640px;">
-						Gestiona el catalogo de FashionStore
+						{lang === 'en' ? 'Manage the FashionStore catalog' : 'Gestiona el catalogo de FashionStore'}
 					</p>
 				</div>
 				<div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-					<a class="btn-secondary" href="/admin-fs">Volver</a>
-					<a class="btn-primary" href="/admin-fs/productos/nuevo">Nuevo producto</a>
+					<a class="btn-secondary" href="/admin-fs">{lang === 'en' ? 'Back' : 'Volver'}</a>
+					<a class="btn-primary" href="/admin-fs/productos/nuevo">{lang === 'en' ? 'New product' : 'Nuevo producto'}</a>
 				</div>
 			</div>
 
@@ -74,29 +80,29 @@ const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 				<table>
 					<thead>
 						<tr>
-							<th>Nombre</th>
+							<th>{lang === 'en' ? 'Name' : 'Nombre'}</th>
 							<th>Slug</th>
-							<th style="text-align: right;">Precio</th>
+							<th style="text-align: right;">{lang === 'en' ? 'Price' : 'Precio'}</th>
 							<th style="text-align: right;">Stock</th>
-							<th style="text-align: center;">Activo</th>
-							<th style="text-align: right;">Acciones</th>
+							<th style="text-align: center;">{lang === 'en' ? 'Active' : 'Activo'}</th>
+							<th style="text-align: right;">{lang === 'en' ? 'Actions' : 'Acciones'}</th>
 						</tr>
 					</thead>
 					<tbody>
 						{products.map((p) => (
 							<tr>
-								<td style="font-weight: 500;">{p.name}</td>
+								<td style="font-weight: 500;">{getProductName(p, lang)}</td>
 								<td style="color: #6b7280;">{p.slug}</td>
 								<td style="text-align: right;">{formatPrice(p.price_cents)}</td>
 								<td style="text-align: right;">{p.stock}</td>
-								<td style="text-align: center;">{p.is_active ? 'Si' : 'No'}</td>
+								<td style="text-align: center;">{p.is_active ? (lang === 'en' ? 'Yes' : 'Si') : 'No'}</td>
 								<td style="text-align: right;">
 									<div style="display: inline-flex; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end;">
-										<a class="btn-secondary" href={`/admin-fs/productos/${encodeURIComponent(p.id)}`} style="padding: 0.5rem 1rem;">Editar</a>
+										<a class="btn-secondary" href={`/admin-fs/productos/${encodeURIComponent(p.id)}`} style="padding: 0.5rem 1rem;">{lang === 'en' ? 'Edit' : 'Editar'}</a>
 										<form method="POST" style="display: inline; margin: 0;">
 											<input type="hidden" name="action" value="delete" />
 											<input type="hidden" name="id" value={p.id} />
-											<button class="btn-danger" type="submit" style="padding: 0.5rem 1rem;">Eliminar</button>
+											<button class="btn-danger" type="submit" style="padding: 0.5rem 1rem;">{lang === 'en' ? 'Delete' : 'Eliminar'}</button>
 										</form>
 									</div>
 								</td>
@@ -106,7 +112,9 @@ const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 				</table>
 			</div>
 
-			{products.length === 0 && !productsError && <p class="helper-text" style="margin-top: 1rem;">No hay productos</p>}
+			{products.length === 0 && !productsError && (
+				<p class="helper-text" style="margin-top: 1rem;">{lang === 'en' ? 'No products' : 'No hay productos'}</p>
+			)}
 		</div>
 	</section>
 </AdminFSLayout>

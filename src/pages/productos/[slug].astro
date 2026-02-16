@@ -4,20 +4,27 @@ import { supabase } from '../../lib/supabase';
 import ProductPurchase from '../../components/islands/ProductPurchase.tsx';
 import { applyPercentDiscountCents, getActiveFlashOffer } from '../../lib/flashOffer';
 import { formatPriceEURFromCents } from '../../lib/price';
+import { getLangFromCookie, getProductName, getProductDescription, getCategoryName } from '../../lib/i18n';
 
 export const prerender = false;
 
 type CategoryRow = {
   id: string;
   name: string;
+  name_es?: string | null;
+  name_en?: string | null;
   slug: string;
 };
 
 type ProductRow = {
   id: string;
   name: string;
+  name_es?: string | null;
+  name_en?: string | null;
   slug: string;
   description?: string | null;
+  description_es?: string | null;
+  description_en?: string | null;
   price_cents: number;
   stock: number;
   category_id: string | null;
@@ -34,9 +41,12 @@ const decodedProductSlug = decodeURIComponent(productSlug);
 
 const sb = supabase as any;
 
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+
 const { data: productData, error: productError } = await sb
   .from('fs_products')
-  .select('id,name,slug,description,price_cents,stock,category_id,images,is_active,product_type,sizes,size_stock')
+  .select('id,name,name_es,name_en,slug,description,description_es,description_en,price_cents,stock,category_id,images,is_active,product_type,sizes,size_stock')
   .eq('slug', decodedProductSlug)
   .maybeSingle();
 
@@ -54,7 +64,7 @@ let category: CategoryRow | null = null;
 if (product?.category_id) {
   const { data: categoryData, error: categoryError } = await sb
     .from('fs_categories')
-    .select('id,name,slug')
+    .select('id,name,name_es,name_en,slug')
     .eq('id', product.category_id)
     .maybeSingle();
 
@@ -79,7 +89,7 @@ if (product) {
   if (product.category_id) {
     const { data: relatedData, error: relatedError } = await sb
       .from('fs_products')
-      .select('id,name,slug,price_cents,stock,category_id,images,is_active')
+      .select('id,name,name_es,name_en,slug,price_cents,stock,category_id,images,is_active')
       .eq('is_active', true)
       .eq('category_id', product.category_id)
       .neq('id', product.id)
@@ -94,7 +104,7 @@ if (product) {
   } else {
     const { data: relatedData, error: relatedError } = await sb
       .from('fs_products')
-      .select('id,name,slug,price_cents,stock,category_id,images,is_active')
+      .select('id,name,name_es,name_en,slug,price_cents,stock,category_id,images,is_active')
       .eq('is_active', true)
       .neq('id', product.id)
       .order('name', { ascending: true })
@@ -108,17 +118,21 @@ if (product) {
   }
 }
 
+const displayName = product ? getProductName(product, lang) : lang === 'en' ? 'Product' : 'Producto';
+
+const descriptionText: string | null = product ? getProductDescription(product, lang) : null;
+
 ---
 
-<StoreLayout title={`${product?.name ?? 'Producto'} - Fashion Store`}>
+<StoreLayout title={`${displayName} - Fashion Store`}>
   <!-- Breadcrumb -->
   <div class="pdp-shell pdp-breadcrumb">
     <nav class="pdp-breadcrumb-nav">
-      <a href="/" class="pdp-breadcrumb-link">Inicio</a>
+      <a href="/" class="pdp-breadcrumb-link">{lang === 'en' ? 'Home' : 'Inicio'}</a>
       <span class="pdp-breadcrumb-sep">/</span>
-      <a href="/productos" class="pdp-breadcrumb-link">Productos</a>
+      <a href="/productos" class="pdp-breadcrumb-link">{lang === 'en' ? 'Products' : 'Productos'}</a>
       <span class="pdp-breadcrumb-sep">/</span>
-      <span class="pdp-breadcrumb-current">{product?.name ?? 'Producto'}</span>
+      <span class="pdp-breadcrumb-current">{displayName}</span>
     </nav>
   </div>
 
@@ -126,10 +140,12 @@ if (product) {
     <div class="pdp-shell">
       {(!product || !product.is_active) && (
         <div class="pdp-notfound">
-          <p class="pdp-notfound-kicker">Producto</p>
-          <h1 class="pdp-notfound-title">Producto no encontrado</h1>
+          <p class="pdp-notfound-kicker">{lang === 'en' ? 'Product' : 'Producto'}</p>
+          <h1 class="pdp-notfound-title">
+            {lang === 'en' ? 'Product not found' : 'Producto no encontrado'}
+          </h1>
           <a href="/productos" class="pdp-notfound-link">
-            Volver al catalogo
+            {lang === 'en' ? 'Back to catalog' : 'Volver al catálogo'}
           </a>
         </div>
       )}
@@ -144,14 +160,14 @@ if (product) {
                   <img
                     id={`main-image-${product.id}`}
                     src={images[0]}
-                    alt={product.name}
+                    alt={displayName}
                     loading="eager"
                     class="pdp-media-img"
                   />
                 ) : (
                   <div class="pdp-media-empty">
                     <span class="pdp-empty-label">
-                      IMAGEN NO DISPONIBLE
+                      {lang === 'en' ? 'IMAGE NOT AVAILABLE' : 'IMAGEN NO DISPONIBLE'}
                     </span>
                   </div>
                 )}
@@ -164,7 +180,7 @@ if (product) {
                       type="button"
                       data-target={`main-image-${product.id}`}
                       data-url={url}
-                      aria-label={`Ver imagen ${idx + 1}`}
+                      aria-label={lang === 'en' ? `View image ${idx + 1}` : `Ver imagen ${idx + 1}`}
                       class={idx === 0 ? 'pdp-thumb pdp-thumb--active' : 'pdp-thumb'}
                     >
                       <img src={url} alt="" loading="lazy" class="pdp-thumb-img" />
@@ -176,8 +192,9 @@ if (product) {
 
             <!-- Right: Details + Purchase -->
             <div class="pdp-details">
-              {category?.name && <p class="pdp-kicker">{category.name}</p>}
-              <h1 class="pdp-title">{product.name}</h1>
+              {category && <p class="pdp-kicker">{getCategoryName(category, lang)}</p>}
+              <h1 class="pdp-title">{displayName}</h1>
+
               {(() => {
                 const discounted = discountPercent > 0 ? applyPercentDiscountCents(product.price_cents, discountPercent) : product.price_cents;
                 const hasDiscount = discountPercent > 0 && discounted < product.price_cents;
@@ -195,17 +212,21 @@ if (product) {
                   </p>
                 );
               })()}
-              <p class="pdp-stock">Stock: {product.stock}</p>
-              {product.description ? (
-                <p class="pdp-desc">{product.description}</p>
+              <p class="pdp-stock">
+                {lang === 'en' ? 'Stock' : 'Stock'}: {product.stock}
+              </p>
+              {descriptionText ? (
+                <p class="pdp-desc">{descriptionText}</p>
               ) : (
-                <p class="pdp-desc pdp-desc--muted">Descripcion no disponible.</p>
+                <p class="pdp-desc pdp-desc--muted">
+                  {lang === 'en' ? 'Description not available.' : 'Descripción no disponible.'}
+                </p>
               )}
 
               <ProductPurchase
                 client:only="preact"
                 productId={product.id}
-                name={product.name}
+                name={displayName}
                 priceCents={product.price_cents}
                 stock={product.stock}
                 imageUrl={imageUrl}
@@ -218,11 +239,13 @@ if (product) {
           <!-- Related -->
           <div class="pdp-related">
             <h2 class="pdp-related-title">
-              Tambien te puede interesar
+              {lang === 'en' ? 'You may also like' : 'También te puede interesar'}
             </h2>
 
             {related.length === 0 && (
-              <p class="pdp-related-empty">No hay productos relacionados.</p>
+              <p class="pdp-related-empty">
+                {lang === 'en' ? 'No related products.' : 'No hay productos relacionados.'}
+              </p>
             )}
 
             {related.length > 0 && (
@@ -231,6 +254,7 @@ if (product) {
                   const rImagesRaw = rp.images;
                   const rImages = Array.isArray(rImagesRaw) ? (rImagesRaw as string[]) : [];
                   const rImageUrl = rImages.length > 0 ? rImages[0] : undefined;
+                  const relatedName = getProductName(rp, lang);
 
                   return (
                     <article class="pdp-related-card">
@@ -238,7 +262,7 @@ if (product) {
                         {rImageUrl ? (
                           <img
                             src={rImageUrl}
-                            alt={rp.name}
+                            alt={relatedName}
                             loading="lazy"
                             class="pdp-related-img"
                           />
@@ -248,7 +272,7 @@ if (product) {
                       </a>
 
                       <a href={`/productos/${encodeURIComponent(rp.slug)}`} class="pdp-related-link">
-                        {rp.name}
+                        {relatedName}
                       </a>
 
                       {(() => {
@@ -274,7 +298,7 @@ if (product) {
                         class="btn-primary"
                         style="width: fit-content;"
                       >
-                        VER PRODUCTO
+                        {lang === 'en' ? 'VIEW PRODUCT' : 'VER PRODUCTO'}
                       </a>
                     </article>
                   );

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { getActiveFlashOffer } from '../../lib/flashOfferClient';
 import type { FlashOffer } from '../../lib/flashOfferClient';
+import { getLang } from '../../lib/i18n';
 
 export default function FlashOfferUI() {
 	const [offer, setOffer] = useState<FlashOffer | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
+	const lang = getLang();
 
 	useEffect(() => {
 		let mounted = true;
@@ -40,9 +42,13 @@ export default function FlashOfferUI() {
 				<div class="fs-flash-banner-inner">
 					<div class="fs-flash-banner-left">
 						<span class="fs-flash-badge">-{Math.trunc(offer.discount_percent)}%</span>
-						<span class="fs-flash-text">OFERTA FLASH ACTIVA</span>
+						<span class="fs-flash-text">
+							{lang === 'en' ? 'FLASH OFFER ACTIVE' : 'OFERTA FLASH ACTIVA'}
+						</span>
 					</div>
-					<a class="fs-flash-link" href="/productos">VER PRODUCTOS</a>
+					<a class="fs-flash-link" href="/productos">
+						{lang === 'en' ? 'VIEW PRODUCTS' : 'VER PRODUCTOS'}
+					</a>
 				</div>
 			</div>
 
@@ -58,7 +64,7 @@ export default function FlashOfferUI() {
 								window.localStorage.setItem(dismissKey, '1');
 							} catch {}
 						}}
-						aria-label="Cerrar"
+						aria-label={lang === 'en' ? 'Close' : 'Cerrar'}
 					/>
 					<div class="fs-flash-card">
 						<button
@@ -71,16 +77,23 @@ export default function FlashOfferUI() {
 									window.localStorage.setItem(dismissKey, '1');
 								} catch {}
 							}}
-							aria-label="Cerrar"
+							aria-label={lang === 'en' ? 'Close' : 'Cerrar'}
 						>
 							×
 						</button>
-						<div class="fs-flash-kicker">OFERTA FLASH</div>
-						<h3 class="fs-flash-title">{offer.popup_title || 'Descuento especial'}</h3>
+						<div class="fs-flash-kicker">{lang === 'en' ? 'FLASH OFFER' : 'OFERTA FLASH'}</div>
+						<h3 class="fs-flash-title">
+							{offer.popup_title || (lang === 'en' ? 'Special discount' : 'Descuento especial')}
+						</h3>
 						<p class="fs-flash-body">
-							{offer.popup_text || `Aprovecha un -${Math.trunc(offer.discount_percent)}% en todos los productos.`}
+							{offer.popup_text
+								|| (lang === 'en'
+									? `Enjoy a -${Math.trunc(offer.discount_percent)}% discount on all products.`
+									: `Aprovecha un -${Math.trunc(offer.discount_percent)}% en todos los productos.`)}
 						</p>
-						<a class="fs-flash-cta" href="/productos">IR AL CATÁLOGO</a>
+						<a class="fs-flash-cta" href="/productos">
+							{lang === 'en' ? 'GO TO CATALOG' : 'IR AL CATÁLOGO'}
+						</a>
 					</div>
 				</div>
 			)}

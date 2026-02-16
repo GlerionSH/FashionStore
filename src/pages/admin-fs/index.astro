@@ -2,8 +2,12 @@
 import AdminFSLayout from '../../layouts/AdminFSLayout.astro';
 import { getSupabaseAdmin } from '../../lib/database/supabaseServer';
 import { formatPriceEURFromCents } from '../../lib/price';
+import { getLangFromCookie } from '../../lib/i18n';
 
 export const prerender = false;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 
 if (Astro.request.method === 'POST') {
 	const form = await Astro.request.formData();
@@ -12,7 +16,7 @@ if (Astro.request.method === 'POST') {
 		Astro.cookies.delete('sb-access-token', { path: '/' });
 		Astro.cookies.delete('sb-refresh-token', { path: '/' });
 		Astro.cookies.delete('sb-user-id', { path: '/' });
-		return Astro.redirect('/admin-fs/login');
+		return Astro.redirect('/auth/login');
 	}
 }
 
@@ -43,7 +47,10 @@ if (adminSb) {
 		.gte('paid_at', start.toISOString())
 		.lte('paid_at', end.toISOString());
 
-	metrics.gross_paid_cents = (paidOrders ?? []).reduce((s: number, o: any) => s + (o.total_cents ?? 0), 0);
+	metrics.gross_paid_cents = (paidOrders ?? []).reduce(
+		(s: number, o: any) => s + (o.total_cents ?? 0),
+		0,
+	);
 	metrics.count_paid = paidOrders?.length ?? 0;
 
 	// Refunds in range
@@ -54,7 +61,10 @@ if (adminSb) {
 		.gte('refunded_at', start.toISOString())
 		.lte('refunded_at', end.toISOString());
 
-	metrics.refunds_cents = (refunds ?? []).reduce((s: number, r: any) => s + (r.refund_total_cents ?? 0), 0);
+	metrics.refunds_cents = (refunds ?? []).reduce(
+		(s: number, r: any) => s + (r.refund_total_cents ?? 0),
+		0,
+	);
 	metrics.net_cents = metrics.gross_paid_cents - metrics.refunds_cents;
 
 	// Pending orders count
@@ -81,51 +91,67 @@ const formatPrice = (cents: number) => formatPriceEURFromCents(cents);
 			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
 				<div>
 					<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.75rem;">
-						Panel
+						{lang === 'en' ? 'Dashboard' : 'Panel'}
 					</p>
 					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
 						Admin Fashion Store
 					</h1>
 					<p class="helper-text" style="margin-top: 0.75rem; max-width: 640px;">
-						Gestiona catálogo, pedidos y configuración
+						{lang === 'en' ? 'Manage catalog, orders and configuration' : 'Gestiona catálogo, pedidos y configuración'}
 					</p>
 				</div>
 				<form method="POST" style="margin: 0;">
 					<input type="hidden" name="action" value="logout" />
-					<button class="btn-secondary" type="submit">Salir</button>
+					<button class="btn-secondary" type="submit">{lang === 'en' ? 'Logout' : 'Salir'}</button>
 				</form>
 			</div>
 
 			<!-- Revenue Card -->
 			<div style="margin-top: 2rem; border: 1px solid #e5e7eb; padding: 1.5rem;">
 				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Ingresos (últimos 7 días)</div>
+					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">
+						{lang === 'en' ? 'Revenue (last 7 days)' : 'Ingresos (últimos 7 días)'}
+					</div>
 					<div id="range-selector" style="display: flex; gap: 0.5rem;">
-						<button type="button" data-range="today" class="range-btn" style="padding: 0.25rem 0.5rem; font-size: 0.6875rem; border: 1px solid #e5e7eb; background: #fff; cursor: pointer;">Hoy</button>
+						<button type="button" data-range="today" class="range-btn" style="padding: 0.25rem 0.5rem; font-size: 0.6875rem; border: 1px solid #e5e7eb; background: #fff; cursor: pointer;">
+							{lang === 'en' ? 'Today' : 'Hoy'}
+						</button>
 						<button type="button" data-range="7d" class="range-btn active" style="padding: 0.25rem 0.5rem; font-size: 0.6875rem; border: 1px solid #111; background: #111; color: #fff; cursor: pointer;">7d</button>
 						<button type="button" data-range="30d" class="range-btn" style="padding: 0.25rem 0.5rem; font-size: 0.6875rem; border: 1px solid #e5e7eb; background: #fff; cursor: pointer;">30d</button>
-						<button type="button" data-range="month" class="range-btn" style="padding: 0.25rem 0.5rem; font-size: 0.6875rem; border: 1px solid #e5e7eb; background: #fff; cursor: pointer;">Mes</button>
+						<button type="button" data-range="month" class="range-btn" style="padding: 0.25rem 0.5rem; font-size: 0.6875rem; border: 1px solid #e5e7eb; background: #fff; cursor: pointer;">
+							{lang === 'en' ? 'Month' : 'Mes'}
+						</button>
 					</div>
 				</div>
 				<div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem;">
 					<div>
-						<div style="font-size: 0.6875rem; color: #6b7280; margin-bottom: 0.25rem;">Bruto</div>
+						<div style="font-size: 0.6875rem; color: #6b7280; margin-bottom: 0.25rem;">
+							{lang === 'en' ? 'Gross' : 'Bruto'}
+						</div>
 						<div id="metric-gross" style="font-size: 1.25rem; font-weight: 500;">{formatPrice(metrics.gross_paid_cents)}</div>
 					</div>
 					<div>
-						<div style="font-size: 0.6875rem; color: #6b7280; margin-bottom: 0.25rem;">Reembolsos</div>
+						<div style="font-size: 0.6875rem; color: #6b7280; margin-bottom: 0.25rem;">
+							{lang === 'en' ? 'Refunds' : 'Reembolsos'}
+						</div>
 						<div id="metric-refunds" style="font-size: 1.25rem; font-weight: 500; color: #dc2626;">{formatPrice(metrics.refunds_cents)}</div>
 					</div>
 					<div>
-						<div style="font-size: 0.6875rem; color: #6b7280; margin-bottom: 0.25rem;">Neto</div>
+						<div style="font-size: 0.6875rem; color: #6b7280; margin-bottom: 0.25rem;">
+							{lang === 'en' ? 'Net' : 'Neto'}
+						</div>
 						<div id="metric-net" style="font-size: 1.25rem; font-weight: 600; color: #059669;">{formatPrice(metrics.net_cents)}</div>
 					</div>
 					<div>
-						<div style="font-size: 0.6875rem; color: #6b7280; margin-bottom: 0.25rem;">Ventas pagadas</div>
+						<div style="font-size: 0.6875rem; color: #6b7280; margin-bottom: 0.25rem;">
+							{lang === 'en' ? 'Paid orders' : 'Ventas pagadas'}
+						</div>
 						<div id="metric-paid" style="font-size: 1.25rem; font-weight: 500;">{metrics.count_paid}</div>
 					</div>
 					<div>
-						<div style="font-size: 0.6875rem; color: #6b7280; margin-bottom: 0.25rem;">Pendientes</div>
+						<div style="font-size: 0.6875rem; color: #6b7280; margin-bottom: 0.25rem;">
+							{lang === 'en' ? 'Pending' : 'Pendientes'}
+						</div>
 						<div id="metric-pending" style="font-size: 1.25rem; font-weight: 500;">{metrics.count_pending}</div>
 					</div>
 				</div>
@@ -133,16 +159,28 @@ const formatPrice = (cents: number) => formatPriceEURFromCents(cents);
 
 			<div style="margin-top: 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
 				<a href="/admin-fs/productos" style="border: 1px solid #e5e7eb; padding: 1.5rem; display: block;">
-					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Catalogo</div>
-					<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">Productos</div>
+					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">
+						{lang === 'en' ? 'Catalog' : 'Catalogo'}
+					</div>
+					<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">
+						{lang === 'en' ? 'Products' : 'Productos'}
+					</div>
 				</a>
 				<a href="/admin-fs/pedidos" style="border: 1px solid #e5e7eb; padding: 1.5rem; display: block;">
-					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Ventas</div>
-					<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">Pedidos</div>
+					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">
+						{lang === 'en' ? 'Sales' : 'Ventas'}
+					</div>
+					<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">
+						{lang === 'en' ? 'Orders' : 'Pedidos'}
+					</div>
 				</a>
 				<a href="/admin-fs/devoluciones" style="border: 1px solid #e5e7eb; padding: 1.5rem; display: block; position: relative;">
-					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Devoluciones</div>
-					<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">Devoluciones</div>
+					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">
+						{lang === 'en' ? 'Returns' : 'Devoluciones'}
+					</div>
+					<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">
+						{lang === 'en' ? 'Returns' : 'Devoluciones'}
+					</div>
 					{pendingReturns > 0 && (
 						<span style="position: absolute; top: 1rem; right: 1rem; background: #dc2626; color: #fff; font-size: 0.6875rem; padding: 0.125rem 0.5rem; border-radius: 9999px;">
 							{pendingReturns}
@@ -150,48 +188,64 @@ const formatPrice = (cents: number) => formatPriceEURFromCents(cents);
 					)}
 				</a>
 				<a href="/admin-fs/flash" style="border: 1px solid #e5e7eb; padding: 1.5rem; display: block;">
-					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Promocion</div>
+					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">
+						{lang === 'en' ? 'Promotion' : 'Promocion'}
+					</div>
 					<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">Flash Offers</div>
 				</a>
 				<a href="/admin-fs/settings" style="border: 1px solid #e5e7eb; padding: 1.5rem; display: block;">
-					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Configuracion</div>
+					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">
+						{lang === 'en' ? 'Settings' : 'Configuracion'}
+					</div>
 					<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">Settings</div>
 				</a>
 				<a href="/productos" style="border: 1px solid #e5e7eb; padding: 1.5rem; display: block;">
-					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">Tienda</div>
-					<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">Ver catalogo</div>
+					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">
+						{lang === 'en' ? 'Store' : 'Tienda'}
+					</div>
+					<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">
+						{lang === 'en' ? 'View catalog' : 'Ver catalogo'}
+					</div>
 				</a>
 			</div>
 
-			<script>
-				const formatPrice = (cents) => {
-					return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cents / 100);
+			<script define:vars={{ lang }}>
+				const formatPriceLocal = (cents) => {
+					const locale = lang === 'en' ? 'en-GB' : 'es-ES';
+					return new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }).format(cents / 100);
 				};
 
 				document.querySelectorAll('.range-btn').forEach((btn) => {
 					btn.addEventListener('click', async () => {
 						const range = btn.dataset.range;
-						
-						// Update active state
+						if (!range) return;
+
 						document.querySelectorAll('.range-btn').forEach((b) => {
 							b.style.border = '1px solid #e5e7eb';
 							b.style.background = '#fff';
 							b.style.color = '#111';
 						});
+
 						btn.style.border = '1px solid #111';
 						btn.style.background = '#111';
 						btn.style.color = '#fff';
 
 						try {
-							const res = await fetch(`/api/admin/metrics/revenue?range=${range}`);
+							const res = await fetch(`/api/admin/metrics/revenue?range=${encodeURIComponent(range)}`);
 							if (!res.ok) throw new Error('Failed to load metrics');
 							const data = await res.json();
 
-							document.getElementById('metric-gross').textContent = formatPrice(data.gross_paid_cents);
-							document.getElementById('metric-refunds').textContent = formatPrice(data.refunds_cents);
-							document.getElementById('metric-net').textContent = formatPrice(data.net_cents);
-							document.getElementById('metric-paid').textContent = data.count_paid;
-							document.getElementById('metric-pending').textContent = data.count_pending;
+							const grossEl = document.getElementById('metric-gross');
+							const refundsEl = document.getElementById('metric-refunds');
+							const netEl = document.getElementById('metric-net');
+							const paidEl = document.getElementById('metric-paid');
+							const pendingEl = document.getElementById('metric-pending');
+
+							if (grossEl) grossEl.textContent = formatPriceLocal(data.gross_paid_cents ?? 0);
+							if (refundsEl) refundsEl.textContent = formatPriceLocal(data.refunds_cents ?? 0);
+							if (netEl) netEl.textContent = formatPriceLocal(data.net_cents ?? 0);
+							if (paidEl) paidEl.textContent = String(data.count_paid ?? 0);
+							if (pendingEl) pendingEl.textContent = String(data.count_pending ?? 0);
 						} catch (err) {
 							console.error('Failed to load metrics', err);
 						}

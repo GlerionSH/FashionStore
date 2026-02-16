@@ -1,10 +1,14 @@
 ---
 import AdminFSLayout from '../../layouts/AdminFSLayout.astro';
 import { getSupabaseAdmin } from '../../lib/database/supabaseServer';
+import { getLangFromCookie } from '../../lib/i18n';
 
 export const prerender = false;
 
 const sb = getSupabaseAdmin() as any;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 
 let error: string | null = null;
 
@@ -26,7 +30,7 @@ if (Astro.request.method === 'POST') {
 		const endsAt = endsAtRaw ? new Date(endsAtRaw).toISOString() : null;
 
 		if (startsAt && endsAt && new Date(startsAt) > new Date(endsAt)) {
-			error = 'starts_at no puede ser mayor que ends_at';
+			error = lang === 'en' ? 'starts_at cannot be later than ends_at' : 'starts_at no puede ser mayor que ends_at';
 		} else {
 			if (isEnabled) {
 				const { error: disableError } = await sb
@@ -34,7 +38,7 @@ if (Astro.request.method === 'POST') {
 					.update({ is_enabled: false })
 					.neq('id', id || '00000000-0000-0000-0000-000000000000');
 				if (disableError) {
-					error = disableError.message || 'No se pudo desactivar otras ofertas';
+					error = disableError.message || (lang === 'en' ? 'Could not disable other offers' : 'No se pudo desactivar otras ofertas');
 				}
 			}
 
@@ -55,7 +59,7 @@ if (Astro.request.method === 'POST') {
 					.upsert(payload, { onConflict: 'id' });
 
 				if (upsertError) {
-					error = upsertError.message || 'No se pudo guardar la oferta';
+					error = upsertError.message || (lang === 'en' ? 'Could not save the offer' : 'No se pudo guardar la oferta');
 				} else {
 					return Astro.redirect('/admin-fs/flash');
 				}
@@ -79,14 +83,14 @@ const { data: offersData, error: offersError } = await sb
 	.limit(20);
 
 if (offersError) {
-	error = offersError.message || 'No se pudieron cargar las ofertas';
+	error = offersError.message || (lang === 'en' ? 'Could not load offers' : 'No se pudieron cargar las ofertas');
 }
 
 const offers = offersData ?? [];
 const current = offers.length > 0 ? offers[0] : null;
 ---
 
-<AdminFSLayout title="Admin FashionStore - Flash">
+<AdminFSLayout title={lang === 'en' ? 'Admin FashionStore - Flash' : 'Admin FashionStore - Flash'}>
 	<section style="padding: 3rem 0 4rem;">
 		<div class="container">
 			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
@@ -98,15 +102,18 @@ const current = offers.length > 0 ? offers[0] : null;
 						Flash Offers
 					</h1>
 					<p class="helper-text" style="margin-top: 0.75rem; max-width: 720px;">
-						Configura la oferta activa (descuento, fechas y popup). Para que aplique en la tienda, el switch global debe estar en ON.
+						{lang === 'en'
+							? 'Configure the active offer (discount, dates and popup). For it to apply in the store, the global switch must be ON.'
+							: 'Configura la oferta activa (descuento, fechas y popup). Para que aplique en la tienda, el switch global debe estar en ON.'}
 					</p>
 				</div>
-				<a class="btn-secondary" href="/admin-fs">Volver</a>
+				<a class="btn-secondary" href="/admin-fs">{lang === 'en' ? 'Back' : 'Volver'}</a>
 			</div>
 
 			{!flashEnabled && (
 				<div class="alert alert-error" style="margin-top: 1.5rem;">
-					El switch global de Ofertas Flash está en OFF. Actívalo en <a href="/admin-fs/ofertas" style="text-decoration: underline;">/admin-fs/ofertas</a>.
+					{lang === 'en' ? 'The global Flash Offers switch is OFF. Enable it in ' : 'El switch global de Ofertas Flash está en OFF. Actívalo en '}
+					<a href="/admin-fs/ofertas" style="text-decoration: underline;">/admin-fs/ofertas</a>.
 				</div>
 			)}
 
@@ -119,15 +126,15 @@ const current = offers.length > 0 ? offers[0] : null;
 				<div style="border: 1px solid #e5e7eb; padding: 1.5rem; display: grid; gap: 1rem;">
 					<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
 						<label style="display: grid; gap: 0.5rem;">
-							<span class="form-label">Descuento (%)</span>
+							<span class="form-label">{lang === 'en' ? 'Discount (%)' : 'Descuento (%)'}</span>
 							<input class="form-input" type="number" name="discount_percent" min="0" max="90" value={String(current?.discount_percent ?? 0)} />
 						</label>
 						<label style="display: grid; gap: 0.5rem;">
-							<span class="form-label">Starts at (ISO o input date)</span>
+							<span class="form-label">{lang === 'en' ? 'Starts at (ISO or input date)' : 'Starts at (ISO o input date)'}</span>
 							<input class="form-input" type="datetime-local" name="starts_at" value={current?.starts_at ? String(current.starts_at).slice(0, 16) : ''} />
 						</label>
 						<label style="display: grid; gap: 0.5rem;">
-							<span class="form-label">Ends at</span>
+							<span class="form-label">{lang === 'en' ? 'Ends at' : 'Ends at'}</span>
 							<input class="form-input" type="datetime-local" name="ends_at" value={current?.ends_at ? String(current.ends_at).slice(0, 16) : ''} />
 						</label>
 					</div>
@@ -135,41 +142,41 @@ const current = offers.length > 0 ? offers[0] : null;
 					<div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
 						<label style="display: inline-flex; align-items: center; gap: 0.75rem;">
 							<input type="checkbox" name="is_enabled" checked={!!current?.is_enabled} />
-							<span class="helper-text">Oferta activa</span>
+							<span class="helper-text">{lang === 'en' ? 'Active offer' : 'Oferta activa'}</span>
 						</label>
 						<label style="display: inline-flex; align-items: center; gap: 0.75rem;">
 							<input type="checkbox" name="show_popup" checked={!!current?.show_popup} />
-							<span class="helper-text">Mostrar popup</span>
+							<span class="helper-text">{lang === 'en' ? 'Show popup' : 'Mostrar popup'}</span>
 						</label>
 					</div>
 
 					<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
 						<label style="display: grid; gap: 0.5rem;">
-							<span class="form-label">Popup title</span>
+							<span class="form-label">{lang === 'en' ? 'Popup title' : 'Popup title'}</span>
 							<input class="form-input" type="text" name="popup_title" value={current?.popup_title ?? ''} />
 						</label>
 						<label style="display: grid; gap: 0.5rem;">
-							<span class="form-label">Popup text</span>
+							<span class="form-label">{lang === 'en' ? 'Popup text' : 'Popup text'}</span>
 							<textarea class="form-input" name="popup_text" rows={4}>{current?.popup_text ?? ''}</textarea>
 						</label>
 					</div>
 				</div>
 
-				<button class="btn-primary" type="submit" style="width: fit-content;">Guardar</button>
+				<button class="btn-primary" type="submit" style="width: fit-content;">{lang === 'en' ? 'Save' : 'Guardar'}</button>
 			</form>
 
 			<div style="margin-top: 2.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;">
-				<h2 style="font-size: 0.8125rem; letter-spacing: 0.15em; text-transform: uppercase; margin: 0 0 1rem;">Historial</h2>
+				<h2 style="font-size: 0.8125rem; letter-spacing: 0.15em; text-transform: uppercase; margin: 0 0 1rem;">{lang === 'en' ? 'History' : 'Historial'}</h2>
 				<div style="display: grid; gap: 0.75rem;">
 					{offers.map((o: any) => (
 						<div style="border: 1px solid #e5e7eb; padding: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
 							<div>
-								<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">{o.is_enabled ? 'ACTIVA' : 'INACTIVA'}</div>
+								<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">{o.is_enabled ? (lang === 'en' ? 'ACTIVE' : 'ACTIVA') : (lang === 'en' ? 'INACTIVE' : 'INACTIVA')}</div>
 								<div style="margin-top: 0.5rem; font-size: 0.9375rem; font-weight: 500;">
 									-{o.discount_percent}%
 								</div>
 								<div class="helper-text" style="margin-top: 0.25rem;">
-									{o.starts_at ? String(o.starts_at) : 'Sin fecha inicio'} · {o.ends_at ? String(o.ends_at) : 'Sin fecha fin'}
+									{o.starts_at ? String(o.starts_at) : (lang === 'en' ? 'No start date' : 'Sin fecha inicio')} · {o.ends_at ? String(o.ends_at) : (lang === 'en' ? 'No end date' : 'Sin fecha fin')}
 								</div>
 							</div>
 							<div class="helper-text">{o.id}</div>

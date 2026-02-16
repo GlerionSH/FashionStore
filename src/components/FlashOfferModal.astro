@@ -1,4 +1,8 @@
 ---
+import { getLangFromCookie } from '../lib/i18n';
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 ---
 
 <div
@@ -15,7 +19,7 @@
 		<button
 			type="button"
 			class="flash-modal__close"
-			aria-label="Cerrar"
+			aria-label={lang === 'en' ? 'Close' : 'Cerrar'}
 			data-close
 		>
 			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -31,19 +35,25 @@
 		/>
 
 		<h2 id="flash-modal-title" class="flash-modal__title">
-			-<span id="flash-modal-percent">0</span>% OFERTA FLASH
+			-
+			<span id="flash-modal-percent">0</span>
+			{lang === 'en' ? '% FLASH OFFER' : '% OFERTA FLASH'}
 		</h2>
 
 		<p id="flash-modal-desc" class="flash-modal__text">
-			<span id="flash-modal-custom-text">Aprovecha hoy. Descuento aplicado automaticamente en el checkout.</span>
+			<span id="flash-modal-custom-text">
+				{lang === 'en'
+					? 'Take advantage today. Discount applied automatically at checkout.'
+					: 'Aprovecha hoy. Descuento aplicado automáticamente en el checkout.'}
+			</span>
 		</p>
 
 		<div class="flash-modal__buttons">
 			<button type="button" class="btn-primary" data-action="scroll">
-				Ver productos con oferta
+				{lang === 'en' ? 'View discounted products' : 'Ver productos con oferta'}
 			</button>
 			<button type="button" class="btn-secondary" data-close>
-				Cerrar
+				{lang === 'en' ? 'Close' : 'Cerrar'}
 			</button>
 		</div>
 	</div>

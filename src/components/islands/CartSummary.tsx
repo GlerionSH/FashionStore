@@ -5,6 +5,7 @@ import type { CartItem } from '../../stores/cart';
 import { getActiveFlashOffer } from '../../lib/flashOfferClient';
 import { applyPercentDiscountCents } from '../../lib/flashOffer';
 import { formatPriceEURFromCents } from '../../lib/price';
+import { getLang } from '../../lib/i18n';
 
 type FlashOfferLite = {
 	id: string;
@@ -16,6 +17,7 @@ const formatCents = (cents: number) => formatPriceEURFromCents(cents);
 export default function CartSummary() {
 	const items = useStore(cartItems) as CartItem[];
 	const [offer, setOffer] = useState<FlashOfferLite | null>(null);
+	const lang = getLang();
 
 	useEffect(() => {
 		let mounted = true;
@@ -44,17 +46,17 @@ export default function CartSummary() {
 	return (
 		<div>
 			<div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-				<span style={{ color: '#6b7280' }}>Subtotal</span>
+				<span style={{ color: '#6b7280' }}>{lang === 'en' ? 'Subtotal' : 'Subtotal'}</span>
 				<span style={{ fontWeight: 500, color: '#111' }}>{formatCents(subtotalCents)}</span>
 			</div>
 			{discountCents > 0 && (
 				<div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-					<span style={{ color: '#6b7280' }}>Descuento</span>
+					<span style={{ color: '#6b7280' }}>{lang === 'en' ? 'Discount' : 'Descuento'}</span>
 					<span style={{ fontWeight: 500, color: '#111' }}>- {formatCents(discountCents)}</span>
 				</div>
 			)}
 			<div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid #e5e7eb' }}>
-				<span style={{ color: '#6b7280' }}>Total</span>
+				<span style={{ color: '#6b7280' }}>{lang === 'en' ? 'Total' : 'Total'}</span>
 				<span style={{ fontWeight: 600, color: '#111' }}>{formatCents(discountedSubtotalCents)}</span>
 			</div>
 		</div>

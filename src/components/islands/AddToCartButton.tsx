@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { addToCart } from '../../stores/cart';
+import { getLang } from '../../lib/i18n';
 
 type Props = {
   productId: string;
@@ -25,6 +26,7 @@ export default function AddToCartButton({
   disabled: disabledProp,
 }: Props) {
   const [added, setAdded] = useState(false);
+  const lang = getLang();
 
   useEffect(() => {
     if (!added) return;
@@ -66,12 +68,16 @@ export default function AddToCartButton({
           }
         }}
       >
-        {outOfStock ? 'SIN STOCK' : 'AÑADIR AL CARRITO'}
+        {outOfStock
+          ? lang === 'en' ? 'OUT OF STOCK' : 'SIN STOCK'
+          : lang === 'en' ? 'ADD TO CART' : 'AÑADIR AL CARRITO'}
       </button>
 
       {added && (
         <div class="mt-2 text-xs tracking-[0.2em] uppercase text-neutral-500">
-          Añadido{size ? ` (Talla ${size})` : ''}
+          {lang === 'en'
+            ? `Added${size ? ` (Size ${size})` : ''}`
+            : `Añadido${size ? ` (Talla ${size})` : ''}`}
         </div>
       )}
     </div>

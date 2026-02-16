@@ -1,11 +1,15 @@
 ---
 import StoreLayout from '../../layouts/StoreLayout.astro';
 import { createClient } from '@supabase/supabase-js';
+import { getLangFromCookie } from '../../lib/i18n';
 
 export const prerender = false;
 
 let error: string | null = null;
 let success: string | null = null;
+
+const raw = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(raw);
 
 if (Astro.request.method === 'POST') {
 	const form = await Astro.request.formData();
@@ -13,12 +17,12 @@ if (Astro.request.method === 'POST') {
 	const password = String(form.get('password') ?? '');
 
 	if (!email || !password) {
-		error = 'Email y contraseña son requeridos';
+		error = lang === 'en' ? 'Email and password are required' : 'Email y contraseña son requeridos';
 	} else {
 		const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 		const anonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 		if (!supabaseUrl || !anonKey) {
-			error = 'Supabase no está configurado';
+			error = lang === 'en' ? 'Supabase is not configured' : 'Supabase no está configurado';
 		} else {
 			const sb = createClient(supabaseUrl, anonKey, {
 				auth: { persistSession: false, autoRefreshToken: false },
@@ -30,30 +34,35 @@ if (Astro.request.method === 'POST') {
 			});
 
 			if (signUpError) {
-				error = signUpError.message || 'No se pudo crear la cuenta';
+				error =
+					signUpError.message ||
+					(lang === 'en' ? 'Could not create account' : 'No se pudo crear la cuenta');
 			} else {
-				success = 'Cuenta creada. Ahora puedes iniciar sesion.';
+				success =
+					lang === 'en'
+						? 'Account created. You can now log in.'
+						: 'Cuenta creada. Ahora puedes iniciar sesión.';
 			}
 		}
 	}
 }
 ---
 
-<StoreLayout title="Crear cuenta - Fashion Store" showAuth={false}>
+<StoreLayout title={`${lang === 'en' ? 'Create account' : 'Crear cuenta'} - Fashion Store`} showAuth={false}>
 	<section style="padding: 4rem 0;">
 		<div class="container container-sm">
 			<div style="text-align: center; margin-bottom: 2.5rem;">
 				<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
-					Crear cuenta
+					{lang === 'en' ? 'Create account' : 'Crear cuenta'}
 				</h1>
 				<p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.75rem;">
-					Registrate para gestionar tus pedidos
+					{lang === 'en'
+						? 'Sign up to manage your orders'
+						: 'Regístrate para gestionar tus pedidos'}
 				</p>
 			</div>
 
-			{error && (
-				<div class="alert alert-error" style="margin-bottom: 1.5rem;">{error}</div>
-			)}
+			{error && <div class="alert alert-error" style="margin-bottom: 1.5rem;">{error}</div>}
 			{success && (
 				<div class="alert alert-success" style="margin-bottom: 1.5rem;">{success}</div>
 			)}
@@ -64,23 +73,33 @@ if (Astro.request.method === 'POST') {
 					<input class="form-input" type="email" id="email" name="email" required />
 				</div>
 				<div>
-					<label for="password" class="form-label">Contraseña</label>
+					<label for="password" class="form-label">
+						{lang === 'en' ? 'Password' : 'Contraseña'}
+					</label>
 					<input class="form-input" type="password" id="password" name="password" required />
 				</div>
 				<button class="btn-primary" type="submit" style="width: 100%; margin-top: 0.5rem;">
-					Crear cuenta
+					{lang === 'en' ? 'Create account' : 'Crear cuenta'}
 				</button>
 			</form>
 
 			<div style="margin-top: 2rem; text-align: center; font-size: 0.8125rem;">
 				<p style="color: #6b7280; margin: 0 0 0.5rem;">
-					¿Ya tienes cuenta?
-					<a href="/auth/login" style="color: #111; text-decoration: underline; margin-left: 0.25rem;">Iniciar sesion</a>
+					{lang === 'en' ? 'Already have an account?' : '¿Ya tienes cuenta?'}
+					<a
+						href="/auth/login"
+						style="color: #111; text-decoration: underline; margin-left: 0.25rem;"
+					>
+						{lang === 'en' ? 'Log in' : 'Iniciar sesión'}
+					</a>
 				</p>
 				<p style="margin: 0;">
-					<a href="/" style="color: #9ca3af; text-decoration: underline;">Volver al inicio</a>
+					<a href="/" style="color: #9ca3af; text-decoration: underline;">
+						{lang === 'en' ? 'Back to home' : 'Volver al inicio'}
+					</a>
 				</p>
 			</div>
 		</div>
 	</section>
 </StoreLayout>
+

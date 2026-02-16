@@ -1,0 +1,119 @@
+---
+import StoreLayout from '../../layouts/StoreLayout.astro';
+import { supabase } from '../../lib/supabase';
+import HeroEditorial from '../../components/HeroEditorial.astro';
+import CategoryBlock from '../../components/CategoryBlock.astro';
+import type { HomeImageConfig } from '../../lib/homeImages';
+import { getLangFromCookie, getCollectionName, getCollectionSubtitle } from '../../lib/i18n';
+
+export const prerender = false;
+
+type CollectionRow = {
+	id: string;
+	slug: string;
+	type: string;
+	name_es: string;
+	name_en: string;
+	subtitle_es: string | null;
+	subtitle_en: string | null;
+	hero_image_url: string | null;
+	banner_image_url: string | null;
+	sort_order: number;
+};
+
+const sb = supabase as any;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+
+const { data: collectionsData, error: collectionsError } = await sb
+	.from('fs_collections')
+	.select('id,slug,type,name_es,name_en,subtitle_es,subtitle_en,hero_image_url,banner_image_url,sort_order')
+	.order('sort_order', { ascending: true });
+
+if (collectionsError) {
+	console.error('[colecciones] collectionsError:', collectionsError);
+}
+
+const collections: CollectionRow[] = collectionsData ?? [];
+
+const pageTitle = lang === 'en' ? 'Collections' : 'Colecciones';
+const pageSubtitle =
+	lang === 'en'
+		? 'Seasonal capsules curated for you.'
+		: 'Cápsulas de temporada seleccionadas para ti.';
+
+let heroImage: HomeImageConfig = {
+	src: null,
+	alt: pageTitle,
+	fallbackColor: '#e5e7eb',
+	fallbackGradient: 'linear-gradient(135deg, #f5f5f5 0%, #e5e7eb 100%)',
+};
+
+if (collections.length > 0) {
+	const primary = collections[0];
+	heroImage = {
+		src: primary.hero_image_url || primary.banner_image_url,
+		alt: getCollectionName(primary, lang),
+		fallbackColor: '#e5e7eb',
+		fallbackGradient: 'linear-gradient(135deg, #f5f5f5 0%, #e5e7eb 100%)',
+	};
+}
+
+const blocks = collections.map((c) => {
+	return {
+		href: `/colecciones/${encodeURIComponent(c.slug)}`,
+		image: {
+			src: c.banner_image_url || c.hero_image_url,
+			alt: getCollectionName(c, lang),
+			fallbackColor: '#e5e7eb',
+		} as HomeImageConfig,
+		title: getCollectionName(c, lang),
+		subtitle:
+			getCollectionSubtitle(c, lang) ?? (lang === 'en' ? 'Collection' : 'Colección'),
+	};
+});
+---
+
+<StoreLayout title={`${pageTitle} - Fashion Store`}>
+	<HeroEditorial
+		image={heroImage}
+		eyebrow={lang === 'en' ? 'Editorial' : 'Editorial'}
+		title={pageTitle}
+		subtitle={pageSubtitle}
+		primaryCta={{ href: '/productos', label: lang === 'en' ? 'View products' : 'Ver productos' }}
+	/>
+
+	<section class="collections-section">
+		<div class="container">
+			<div class="collections-grid">
+				{blocks.map((b) => (
+					<CategoryBlock
+							href={b.href}
+							image={b.image}
+							subtitle={b.subtitle}
+							title={b.title}
+						/>
+				))}
+			</div>
+		</div>
+	</section>
+</StoreLayout>
+
+<style>
+	.collections-section {
+		padding: 5rem 0;
+	}
+
+	.collections-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+		gap: 1.5rem;
+	}
+
+	@media (max-width: 768px) {
+		.collections-section {
+			padding: 3.5rem 0;
+		}
+	}
+</style>

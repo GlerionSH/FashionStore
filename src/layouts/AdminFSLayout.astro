@@ -1,4 +1,6 @@
 ---
+import { getLangFromCookie } from '../lib/i18n';
+
 interface Props {
 	title?: string;
 	showHeader?: boolean;
@@ -6,10 +8,12 @@ interface Props {
 
 const { title = 'Admin FashionStore', showHeader = true } = Astro.props;
 const currentPath = Astro.url.pathname;
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 ---
 
 <!doctype html>
-<html lang="es">
+<html lang={lang}>
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -159,11 +163,30 @@ const currentPath = Astro.url.pathname;
 						Fashion Store Admin
 					</a>
 					<nav style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
-						<a href="/admin-fs/productos" style={`font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;${currentPath.startsWith('/admin-fs/productos') ? 'color:#111;' : 'color:#6b7280;'}`}>Productos</a>
-						<a href="/admin-fs/pedidos" style={`font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;${currentPath.startsWith('/admin-fs/pedidos') ? 'color:#111;' : 'color:#6b7280;'}`}>Pedidos</a>
-						<a href="/admin-fs/settings" style={`font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;${currentPath === '/admin-fs/settings' ? 'color:#111;' : 'color:#6b7280;'}`}>Settings</a>
-						<a href="/admin-fs/ofertas" style={`font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;${currentPath === '/admin-fs/ofertas' ? 'color:#111;' : 'color:#6b7280;'}`}>Ofertas</a>
-						<a href="/" style="font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280;">Tienda</a>
+						<a href="/admin-fs/productos" style={`font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;${currentPath.startsWith('/admin-fs/productos') ? 'color:#111;' : 'color:#6b7280;'}`}>
+							{lang === 'en' ? 'Products' : 'Productos'}
+						</a>
+						<a href="/admin-fs/pedidos" style={`font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;${currentPath.startsWith('/admin-fs/pedidos') ? 'color:#111;' : 'color:#6b7280;'}`}>
+							{lang === 'en' ? 'Orders' : 'Pedidos'}
+						</a>
+						<a href="/admin-fs/settings" style={`font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;${currentPath === '/admin-fs/settings' ? 'color:#111;' : 'color:#6b7280;'}`}>
+							{lang === 'en' ? 'Settings' : 'Ajustes'}
+						</a>
+						<a href="/admin-fs/ofertas" style={`font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;${currentPath === '/admin-fs/ofertas' ? 'color:#111;' : 'color:#6b7280;'}`}>
+							{lang === 'en' ? 'Offers' : 'Ofertas'}
+						</a>
+						<a href="/" style="font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280;">
+							{lang === 'en' ? 'Store' : 'Tienda'}
+						</a>
+						<button
+							id="fs-admin-lang-toggle"
+							type="button"
+							data-current-lang={lang}
+							class="btn-link"
+							style="font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase;"
+						>
+							{lang === 'en' ? 'EN' : 'ES'}
+						</button>
 					</nav>
 				</div>
 			</header>
@@ -172,5 +195,25 @@ const currentPath = Astro.url.pathname;
 		<main>
 			<slot />
 		</main>
+
+		<script>
+			(() => {
+				const btn = document.getElementById('fs-admin-lang-toggle');
+				if (!(btn instanceof HTMLButtonElement)) return;
+
+				const current = btn.dataset.currentLang === 'en' ? 'en' : 'es';
+				const next = current === 'es' ? 'en' : 'es';
+
+				btn.addEventListener('click', () => {
+					try {
+						document.cookie = `fs_lang=${encodeURIComponent(next)};path=/;max-age=31536000`;
+					} catch {}
+					try {
+						window.localStorage.setItem('fs_lang', next);
+					} catch {}
+					window.location.reload();
+				});
+			})();
+		</script>
 	</body>
 </html>

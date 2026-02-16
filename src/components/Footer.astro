@@ -1,8 +1,12 @@
 ---
 import { getBrand } from '../lib/brand';
+import { getLangFromCookie } from '../lib/i18n';
 
 const brand = getBrand();
 const currentYear = new Date().getFullYear();
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 ---
 
 <footer class="store-footer">
@@ -11,31 +15,33 @@ const currentYear = new Date().getFullYear();
 			<div class="footer-col">
 				<h4 class="footer-title">{brand.name}</h4>
 				<p class="footer-text">
-					Moda atemporal con calidad y elegancia. Piezas diseñadas para el dia a dia.
+					{lang === 'en'
+						? 'Timeless fashion with quality and elegance. Pieces designed for everyday life.'
+						: 'Moda atemporal con calidad y elegancia. Piezas diseñadas para el día a día.'}
 				</p>
 			</div>
-
+		
 			<div class="footer-col">
-				<h4 class="footer-title">Ayuda</h4>
+				<h4 class="footer-title">{lang === 'en' ? 'Help' : 'Ayuda'}</h4>
 				<ul class="footer-links">
-					<li><a href="/envios">Envios</a></li>
-					<li><a href="/devoluciones">Devoluciones</a></li>
-					<li><a href="/contacto">Contacto</a></li>
-					<li><a href="/terminos">Terminos y condiciones</a></li>
+					<li><a href="/envios">{lang === 'en' ? 'Shipping' : 'Envíos'}</a></li>
+					<li><a href="/devoluciones">{lang === 'en' ? 'Returns' : 'Devoluciones'}</a></li>
+					<li><a href="/contacto">{lang === 'en' ? 'Contact' : 'Contacto'}</a></li>
+					<li><a href="/terminos">{lang === 'en' ? 'Terms & conditions' : 'Términos y condiciones'}</a></li>
 				</ul>
 			</div>
-
+		
 			<div class="footer-col">
-				<h4 class="footer-title">Contacto</h4>
+				<h4 class="footer-title">{lang === 'en' ? 'Contact' : 'Contacto'}</h4>
 				<ul class="footer-links footer-contact">
 					<li>info@fashionstore.com</li>
-					<li>Cadiz, Espana</li>
-					<li>Lun - Vie: 10:00 - 19:00</li>
+					<li>{lang === 'en' ? 'Cadiz, Spain' : 'Cádiz, España'}</li>
+					<li>{lang === 'en' ? 'Mon - Fri: 10:00 - 19:00' : 'Lun - Vie: 10:00 - 19:00'}</li>
 				</ul>
 			</div>
-
+		
 			<div class="footer-col">
-				<h4 class="footer-title">Social</h4>
+				<h4 class="footer-title">{lang === 'en' ? 'Social' : 'Social'}</h4>
 				<ul class="footer-links">
 					<li><a href="#" target="_blank" rel="noopener">Instagram</a></li>
 					<li><a href="#" target="_blank" rel="noopener">Twitter</a></li>
@@ -45,7 +51,9 @@ const currentYear = new Date().getFullYear();
 		</div>
 
 		<div class="footer-bottom">
-			<p>{currentYear} {brand.name}. Todos los derechos reservados.</p>
+			<p>
+				{currentYear} {brand.name}. {lang === 'en' ? 'All rights reserved.' : 'Todos los derechos reservados.'}
+			</p>
 		</div>
 	</div>
 </footer>

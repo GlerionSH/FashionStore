@@ -3,6 +3,7 @@ import { useStore } from '@nanostores/preact';
 import { getActiveFlashOffer } from '../../lib/flashOfferClient';
 import { applyPercentDiscountCents } from '../../lib/flashOffer';
 import { formatPriceEURFromCents } from '../../lib/price';
+import { getLang } from '../../lib/i18n';
 import {
   cartCount,
   cartItems,
@@ -25,6 +26,7 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
   const subtotal = useStore(cartSubtotalFormatted);
   const [open, setOpen] = useState(false);
   const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const lang = getLang();
 
   const isEmpty = items.length === 0;
   const showOverlay = variant === 'slideover' && open;
@@ -82,7 +84,10 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16, borderBottom: '1px solid #e5e7eb' }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9ca3af' }}>
-            {count} {count === 1 ? 'articulo' : 'articulos'}
+            {count}{' '}
+            {lang === 'en'
+              ? count === 1 ? 'item' : 'items'
+              : count === 1 ? 'artículo' : 'artículos'}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -99,14 +104,14 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
               textDecoration: 'underline',
             }}
           >
-            Vaciar
+            {lang === 'en' ? 'Empty' : 'Vaciar'}
           </button>
           {variant === 'slideover' && (
             <button
               type="button"
               onClick={() => setOpen(false)}
               style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#111' }}
-              aria-label="Cerrar"
+              aria-label={lang === 'en' ? 'Close' : 'Cerrar'}
             >
               ×
             </button>
@@ -118,7 +123,7 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
       <div style={{ flex: 1, overflow: 'auto', paddingTop: 16 }}>
         {isEmpty && (
           <p style={{ fontSize: 14, color: '#9ca3af', textAlign: 'center', padding: '2rem 0' }}>
-            Tu carrito esta vacio
+            {lang === 'en' ? 'Your cart is empty' : 'Tu carrito está vacío'}
           </p>
         )}
 
@@ -155,7 +160,7 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
                 <div style={{ fontSize: 14, fontWeight: 400, marginBottom: 4 }}>{item.name}</div>
                 {item.size && (
                   <div style={{ fontSize: 11, color: '#6b7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 4 }}>
-                    Talla: {item.size}
+                    {lang === 'en' ? 'Size' : 'Talla'}: {item.size}
                   </div>
                 )}
                 <div style={{ fontSize: 13, color: '#111', marginBottom: 8 }}>
@@ -177,7 +182,9 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
                 </div>
 
                 {outOfStock && (
-                  <div style={{ fontSize: 11, color: '#dc2626', marginBottom: 8 }}>Sin stock</div>
+                  <div style={{ fontSize: 11, color: '#dc2626', marginBottom: 8 }}>
+                    {lang === 'en' ? 'Out of stock' : 'Sin stock'}
+                  </div>
                 )}
 
                 {/* Quantity controls */}
@@ -243,7 +250,7 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
                     textDecoration: 'underline',
                   }}
                 >
-                  Eliminar
+                  {lang === 'en' ? 'Remove' : 'Eliminar'}
                 </button>
               </div>
             </div>
@@ -254,7 +261,9 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
       {/* Footer */}
       <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-          <span style={{ fontSize: 13, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subtotal</span>
+          <span style={{ fontSize: 13, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {lang === 'en' ? 'Subtotal' : 'Subtotal'}
+          </span>
           <span style={{ fontSize: 14, fontWeight: 500 }}>
             {footerHasDiscount ? (
               <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -274,7 +283,7 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
               class="btn-primary"
               style={{ width: '100%', textAlign: 'center' }}
             >
-              Finalizar compra
+              {lang === 'en' ? 'Checkout' : 'Finalizar compra'}
             </a>
             <a
               href="/carrito"
@@ -287,7 +296,7 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
                 padding: '8px 0',
               }}
             >
-              Ver carrito
+              {lang === 'en' ? 'View cart' : 'Ver carrito'}
             </a>
           </div>
         )}
@@ -327,7 +336,7 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
           borderRadius: 999,
         }}
       >
-        <span>Carrito</span>
+        <span>{lang === 'en' ? 'Cart' : 'Carrito'}</span>
         <span style={{
           background: '#fff',
           color: '#111',
@@ -346,7 +355,7 @@ export default function CartPanel({ variant = 'slideover' }: Props) {
           <button
             type="button"
             onClick={() => setOpen(false)}
-            aria-label="Cerrar carrito"
+            aria-label={lang === 'en' ? 'Close cart' : 'Cerrar carrito'}
             style={{
               position: 'fixed',
               inset: 0,

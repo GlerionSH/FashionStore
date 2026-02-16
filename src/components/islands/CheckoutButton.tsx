@@ -2,6 +2,7 @@ import { useMemo, useState } from 'preact/hooks';
 import { useStore } from '@nanostores/preact';
 import { cartItems } from '../../stores/cart';
 import type { CartItem } from '../../stores/cart';
+import { getLang } from '../../lib/i18n';
 
 type ApiResponseOk = {
 	url: string;
@@ -21,6 +22,7 @@ export default function CheckoutButton() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [result, setResult] = useState<ApiResponseOk | null>(null);
+	const lang = getLang();
 
 	const payloadItems = useMemo(
 		() =>
@@ -38,7 +40,7 @@ export default function CheckoutButton() {
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 					<input
 						type="email"
-						placeholder="Email (opcional)"
+						placeholder={lang === 'en' ? 'Email (optional)' : 'Email (opcional)'}
 						value={email}
 						onInput={(e: Event) => setEmail((e.currentTarget as HTMLInputElement).value)}
 						class="form-input"
@@ -54,18 +56,6 @@ export default function CheckoutButton() {
 							setResult(null);
 							if (!canSubmit) return;
 
-							try {
-								const meRes = await fetch('/api/me', { method: 'GET' });
-								const meData = (await meRes.json()) as { loggedIn?: boolean };
-								if (!meData?.loggedIn) {
-									window.location.href = '/auth/login?next=/carrito';
-									return;
-								}
-							} catch {
-								window.location.href = '/auth/login?next=/carrito';
-								return;
-							}
-
 							setLoading(true);
 							try {
 								const res = await fetch('/api/stripe/checkout', {
@@ -77,14 +67,9 @@ export default function CheckoutButton() {
 									}),
 								});
 
-								if (res.status === 401) {
-									window.location.href = '/auth/login?next=/carrito';
-									return;
-								}
-
 								const data = (await res.json()) as ApiResponse;
 								if (!res.ok) {
-									setError((data as ApiResponseErr)?.error || 'Error desconocido');
+									setError((data as ApiResponseErr)?.error || (lang === 'en' ? 'Unknown error' : 'Error desconocido'));
 									return;
 								}
 
@@ -94,15 +79,15 @@ export default function CheckoutButton() {
 									window.location.href = url;
 									return;
 								}
-								setError('Stripe no devolvió una URL de checkout');
+								setError(lang === 'en' ? 'Stripe did not return a checkout URL' : 'Stripe no devolvió una URL de checkout');
 							} catch (err: any) {
-								setError(err?.message || 'Error inesperado');
+								setError(err?.message || (lang === 'en' ? 'Unexpected error' : 'Error inesperado'));
 							} finally {
 								setLoading(false);
 							}
 						}}
 					>
-						{loading ? 'Procesando...' : 'Finalizar compra'}
+						{loading ? (lang === 'en' ? 'Processing...' : 'Procesando...') : (lang === 'en' ? 'Checkout' : 'Finalizar compra')}
 					</button>
 				</div>
 			)}
@@ -116,10 +101,10 @@ export default function CheckoutButton() {
 			{result && (
 				<div style={{ border: '1px solid #e5e7eb', padding: 24 }}>
 					<p style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#111', margin: '0 0 12px' }}>
-						Redirigiendo a Stripe...
+						{lang === 'en' ? 'Redirecting to Stripe...' : 'Redirigiendo a Stripe...'}
 					</p>
 					<p style={{ fontSize: 14, margin: 0, color: '#6b7280' }}>
-						Si no ocurre nada, revisa que Stripe esté configurado.
+						{lang === 'en' ? 'If nothing happens, check that Stripe is configured.' : 'Si no ocurre nada, revisa que Stripe esté configurado.'}
 					</p>
 				</div>
 			)}

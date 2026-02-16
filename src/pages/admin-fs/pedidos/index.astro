@@ -2,10 +2,14 @@
 import AdminFSLayout from '../../../layouts/AdminFSLayout.astro';
 import { getSupabaseAdmin } from '../../../lib/database/supabaseServer';
 import { formatPriceEURFromCents } from '../../../lib/price';
+import { getLangFromCookie } from '../../../lib/i18n';
 
 export const prerender = false;
 
 const sb = getSupabaseAdmin() as any;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 
 let error: string | null = null;
 
@@ -35,22 +39,22 @@ const orders: OrderRow[] = ordersData ?? [];
 const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 ---
 
-<AdminFSLayout title="Admin FashionStore - Pedidos">
+<AdminFSLayout title={lang === 'en' ? 'Admin FashionStore - Orders' : 'Admin FashionStore - Pedidos'}>
 	<section style="padding: 3rem 0 4rem;">
 		<div class="container">
 			<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
 				<div>
 					<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.75rem;">
-						Pedidos
+						{lang === 'en' ? 'Orders' : 'Pedidos'}
 					</p>
 					<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
-						Pedidos
+						{lang === 'en' ? 'Orders' : 'Pedidos'}
 					</h1>
 					<p class="helper-text" style="margin-top: 0.75rem; max-width: 640px;">
-						Ultimos 50 pedidos creados por checkout
+						{lang === 'en' ? 'Last 50 orders created via checkout' : 'Ultimos 50 pedidos creados por checkout'}
 					</p>
 				</div>
-				<a class="btn-secondary" href="/admin-fs">Volver</a>
+				<a class="btn-secondary" href="/admin-fs">{lang === 'en' ? 'Back' : 'Volver'}</a>
 			</div>
 
 			{error && <div class="alert alert-error" style="margin-top: 1.5rem;">{error}</div>}
@@ -59,14 +63,14 @@ const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 				<table>
 					<thead>
 						<tr>
-							<th>Fecha</th>
-							<th>Order ID</th>
+							<th>{lang === 'en' ? 'Date' : 'Fecha'}</th>
+							<th>{lang === 'en' ? 'Order ID' : 'ID pedido'}</th>
 							<th>Email</th>
 							<th>User ID</th>
 							<th style="text-align: right;">Subtotal</th>
-							<th style="text-align: right;">Discount</th>
+							<th style="text-align: right;">{lang === 'en' ? 'Discount' : 'Descuento'}</th>
 							<th style="text-align: right;">Total</th>
-							<th>Status</th>
+							<th>{lang === 'en' ? 'Status' : 'Estado'}</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -75,7 +79,7 @@ const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 								<td style="white-space: nowrap;">{new Date(o.created_at).toLocaleString()}</td>
 								<td style="font-weight: 500;">
 									<a class="btn-secondary" href={`/admin-fs/pedidos/${encodeURIComponent(o.id)}`} style="padding: 0.5rem 1rem;">
-										Ver
+										{lang === 'en' ? 'View' : 'Ver'}
 									</a>
 									<span style="margin-left: 0.5rem; color: #6b7280; font-size: 0.8125rem;">{o.id}</span>
 								</td>
@@ -92,7 +96,7 @@ const formatPrice = (priceCents: number) => formatPriceEURFromCents(priceCents);
 			</div>
 
 			{orders.length === 0 && !ordersError && (
-				<p class="helper-text" style="margin-top: 1rem;">No hay pedidos</p>
+				<p class="helper-text" style="margin-top: 1rem;">{lang === 'en' ? 'No orders' : 'No hay pedidos'}</p>
 			)}
 		</div>
 	</section>
