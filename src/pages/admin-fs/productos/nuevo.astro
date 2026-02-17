@@ -204,7 +204,7 @@ if (Astro.request.method === 'POST') {
 				<button class="btn-primary" type="submit" style="width: fit-content;">{lang === 'en' ? 'Create product' : 'Crear producto'}</button>
 			</form>
 
-			<script>
+			<script define:vars={{ lang }}>
 			(() => {
 				// Sizes logic
 				const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
@@ -254,7 +254,7 @@ if (Astro.request.method === 'POST') {
 				const renderSelectedSizes = () => {
 					selectedContainer.innerHTML = '';
 					if (selectedSizes.size === 0) {
-						selectedContainer.innerHTML = '<p style="color: #9ca3af; font-size: 0.875rem;">Sin tallas seleccionadas (producto sin sistema de tallas)</p>';
+						selectedContainer.innerHTML = `<p style="color: #9ca3af; font-size: 0.875rem;">${lang === 'en' ? 'No sizes selected (product without size system)' : 'Sin tallas seleccionadas (producto sin sistema de tallas)'}</p>`;
 						return;
 					}
 
@@ -263,7 +263,7 @@ if (Astro.request.method === 'POST') {
 						row.style.cssText = 'display: flex; align-items: center; gap: 1rem; padding: 0.75rem; border: 1px solid #e5e7eb; background: #fafafa;';
 
 						const label = document.createElement('span');
-						label.textContent = `Talla ${size}`;
+						label.textContent = `${lang === 'en' ? 'Size' : 'Talla'} ${size}`;
 						label.style.cssText = 'font-weight: 500; min-width: 80px;';
 
 						const hiddenInput = document.createElement('input');
@@ -276,7 +276,7 @@ if (Astro.request.method === 'POST') {
 						stockInput.name = `size_stock_${size}`;
 						stockInput.min = '0';
 						stockInput.value = String(stock);
-						stockInput.placeholder = 'Stock';
+						stockInput.placeholder = lang === 'en' ? 'Stock' : 'Stock';
 						stockInput.style.cssText = 'width: 100px; padding: 0.5rem; border: 1px solid #e5e7eb; font-size: 0.875rem;';
 						stockInput.addEventListener('change', () => {
 							selectedSizes.set(size, Math.max(0, parseInt(stockInput.value) || 0));
@@ -284,7 +284,7 @@ if (Astro.request.method === 'POST') {
 
 						const removeBtn = document.createElement('button');
 						removeBtn.type = 'button';
-						removeBtn.textContent = 'Quitar';
+						removeBtn.textContent = lang === 'en' ? 'Remove' : 'Quitar';
 						removeBtn.style.cssText = 'padding: 0.5rem 0.75rem; border: 1px solid #991b1b; background: #fff; color: #991b1b; font-size: 0.75rem; cursor: pointer;';
 						removeBtn.addEventListener('click', () => {
 							selectedSizes.delete(size);
@@ -362,11 +362,11 @@ if (Astro.request.method === 'POST') {
 					errorEl.textContent = '';
 					const validFiles = files.filter((f) => {
 						if (!ALLOWED_TYPES.includes(f.type)) {
-							errorEl.textContent = `Tipo no permitido: ${f.type}. Solo jpg/png/webp.`;
+							errorEl.textContent = lang === 'en' ? `File type not allowed: ${f.type}. Only jpg/png/webp.` : `Tipo no permitido: ${f.type}. Solo jpg/png/webp.`;
 							return false;
 						}
 						if (f.size > MAX_FILE_SIZE) {
-							errorEl.textContent = `Archivo muy grande: ${(f.size / 1024 / 1024).toFixed(2)}MB. Máx 5MB.`;
+							errorEl.textContent = lang === 'en' ? `File too large: ${(f.size / 1024 / 1024).toFixed(2)}MB. Max 5MB.` : `Archivo muy grande: ${(f.size / 1024 / 1024).toFixed(2)}MB. Máx 5MB.`;
 							return false;
 						}
 						return true;
@@ -378,14 +378,14 @@ if (Astro.request.method === 'POST') {
 					let uploaded = 0;
 
 					for (const file of validFiles) {
-						statusEl.textContent = `Subiendo ${uploaded + 1}/${validFiles.length}...`;
+						statusEl.textContent = lang === 'en' ? `Uploading ${uploaded + 1}/${validFiles.length}...` : `Subiendo ${uploaded + 1}/${validFiles.length}...`;
 						try {
 							const signRes = await fetch('/api/cloudinary/sign', {
 								method: 'POST',
 								headers: { 'Content-Type': 'application/json' },
 								body: JSON.stringify({ folder: 'fashionstore/products' }),
 							});
-							if (!signRes.ok) throw new Error('Error obteniendo firma');
+							if (!signRes.ok) throw new Error(lang === 'en' ? 'Error getting signature' : 'Error obteniendo firma');
 							const { timestamp, signature, apiKey, cloudName, folder } = await signRes.json();
 
 							const formData = new FormData();
@@ -401,18 +401,18 @@ if (Astro.request.method === 'POST') {
 							});
 							if (!uploadRes.ok) {
 								const err = await uploadRes.json().catch(() => ({}));
-								throw new Error(err?.error?.message || 'Error subiendo a Cloudinary');
+								throw new Error(err?.error?.message || (lang === 'en' ? 'Error uploading to Cloudinary' : 'Error subiendo a Cloudinary'));
 							}
 							const data = await uploadRes.json();
 							uploadedImages.push({ secure_url: data.secure_url, public_id: data.public_id });
 							uploaded++;
 							renderPreviews();
 						} catch (err) {
-							errorEl.textContent = (err && err.message) || 'Error subiendo imagen';
+							errorEl.textContent = (err && err.message) || (lang === 'en' ? 'Error uploading image' : 'Error subiendo imagen');
 						}
 					}
 
-					statusEl.textContent = uploaded > 0 ? `${uploaded} imagen(es) subida(s)` : '';
+					statusEl.textContent = uploaded > 0 ? (lang === 'en' ? `${uploaded} image(s) uploaded` : `${uploaded} imagen(es) subida(s)`) : '';
 					uploadBtn.disabled = false;
 				};
 

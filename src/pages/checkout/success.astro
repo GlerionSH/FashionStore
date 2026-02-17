@@ -1,19 +1,22 @@
 ---
 import StoreLayout from '../../layouts/StoreLayout.astro';
+import { getLangFromCookie } from '../../lib/i18n';
 
 export const prerender = false;
 
 const sessionId = Astro.url.searchParams.get('session_id');
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
 ---
 
-<StoreLayout title="Pago completado - Fashion Store" showAuth={true}>
+<StoreLayout title={lang === 'en' ? 'Payment completed - Fashion Store' : 'Pago completado - Fashion Store'} showAuth={true}>
 	<section style="padding: 4rem 0;">
 		<div class="container container-sm">
 			<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0;">
-				Pago completado
+				{lang === 'en' ? 'Payment completed' : 'Pago completado'}
 			</h1>
 			<p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.75rem;">
-				Gracias. Si el pago se ha realizado correctamente, verás tu pedido en tu cuenta.
+				{lang === 'en' ? 'Thank you. If the payment was successful, you will see your order in your account.' : 'Gracias. Si el pago se ha realizado correctamente, verás tu pedido en tu cuenta.'}
 			</p>
 
 			<div id="invoice-block" style="margin-top: 1.5rem; display: none;">
@@ -24,24 +27,24 @@ const sessionId = Astro.url.searchParams.get('session_id');
 					href="#"
 					style="width: 100%; text-align: center; margin-top: 0.75rem; display: none;"
 				>
-					Descargar factura (PDF)
+					{lang === 'en' ? 'Download invoice (PDF)' : 'Descargar factura (PDF)'}
 				</a>
 			</div>
 
 			{sessionId && (
 				<p style="font-size: 0.8125rem; color: #9ca3af; margin-top: 1rem; word-break: break-word;">
-					Session ID: {sessionId}
+					{lang === 'en' ? 'Session ID:' : 'ID de sesión:'} {sessionId}
 				</p>
 			)}
 
 			<div style="margin-top: 2rem; display: grid; gap: 0.75rem;">
-				<a class="btn-primary" href="/cuenta" style="width: 100%; text-align: center;">Ir a mi cuenta</a>
-				<a class="btn-secondary" href="/" style="width: 100%; text-align: center;">Volver al inicio</a>
+				<a class="btn-primary" href="/cuenta" style="width: 100%; text-align: center;">{lang === 'en' ? 'Go to my account' : 'Ir a mi cuenta'}</a>
+				<a class="btn-secondary" href="/" style="width: 100%; text-align: center;">{lang === 'en' ? 'Back to home' : 'Volver al inicio'}</a>
 			</div>
 		</div>
 	</section>
 
-	<script define:vars={{ sessionId }}>
+	<script define:vars={{ sessionId, lang }}>
 		(() => {
 			const block = document.getElementById('invoice-block');
 			const statusEl = document.getElementById('invoice-status');
@@ -57,7 +60,7 @@ const sessionId = Astro.url.searchParams.get('session_id');
 
 			const tick = async () => {
 				tries++;
-				statusEl.textContent = 'Generando factura…';
+				statusEl.textContent = lang === 'en' ? 'Generating invoice…' : 'Generando factura…';
 				try {
 					const url = `/api/orders/invoice-url?session_id=${encodeURIComponent(sessionId)}`;
 					const res = await fetch(url, { method: 'GET', credentials: 'include' });
@@ -72,12 +75,12 @@ const sessionId = Astro.url.searchParams.get('session_id');
 					}
 
 					if (res.status === 401) {
-						statusEl.textContent = 'Inicia sesión para descargar la factura.';
+						statusEl.textContent = lang === 'en' ? 'Sign in to download the invoice.' : 'Inicia sesión para descargar la factura.';
 						return;
 					}
 
 					if (res.status === 403) {
-						statusEl.textContent = 'No tienes permisos para esa factura.';
+						statusEl.textContent = lang === 'en' ? 'You do not have permission for that invoice.' : 'No tienes permisos para esa factura.';
 						return;
 					}
 
@@ -86,23 +89,23 @@ const sessionId = Astro.url.searchParams.get('session_id');
 							setTimeout(tick, 2000);
 							return;
 						}
-						statusEl.textContent = 'La factura aún no está lista. Recarga en unos segundos o entra en Mis pedidos.';
+						statusEl.textContent = lang === 'en' ? 'The invoice is not ready yet. Reload in a few seconds or go to My orders.' : 'La factura aún no está lista. Recarga en unos segundos o entra en Mis pedidos.';
 						return;
 					}
 
 					if (res.status >= 500) {
-						statusEl.textContent = 'Error del servidor generando factura.';
+						statusEl.textContent = lang === 'en' ? 'Server error generating invoice.' : 'Error del servidor generando factura.';
 						return;
 					}
 
-					statusEl.textContent = 'No se pudo obtener la factura.';
+					statusEl.textContent = lang === 'en' ? 'Could not retrieve the invoice.' : 'No se pudo obtener la factura.';
 				} catch (err) {
 					console.info('[success] invoice-url fetch error', err);
 					if (tries < maxTries) {
 						setTimeout(tick, 2000);
 						return;
 					}
-					statusEl.textContent = 'La factura aún no está lista. Recarga en unos segundos o entra en Mis pedidos.';
+					statusEl.textContent = lang === 'en' ? 'The invoice is not ready yet. Reload in a few seconds or go to My orders.' : 'La factura aún no está lista. Recarga en unos segundos o entra en Mis pedidos.';
 				}
 			};
 
