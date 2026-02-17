@@ -241,6 +241,75 @@ Análisis y métricas del negocio:
    - Páginas de gestión
    - Sistema de reportes
 
+## 💳 Pagos con Stripe en producción
+
+Esta app está pensada para funcionar 100% en producción (por ejemplo en Coolify) sin depender de `localhost`, `npm run dev` ni `stripe listen`.
+
+### Webhook en Stripe Dashboard
+
+- **URL del webhook (producción):**
+  - `https://<TU_DOMINIO_PRODUCCION>/api/stripe/webhook`
+- **Eventos a habilitar:**
+  - `checkout.session.completed`
+  - `checkout.session.expired`
+  - `payment_intent.succeeded`
+  - `payment_intent.payment_failed`
+- Copia el **Signing secret** que te da Stripe y configúralo como `STRIPE_WEBHOOK_SECRET` en el entorno de producción.
+
+El webhook verifica la firma sobre el **cuerpo raw**, marca pedidos como `paid`, descuenta stock por talla de forma atómica vía RPC, genera factura y envía emails.
+
+### Variables de entorno necesarias
+
+Configura estas variables (sin valores de ejemplo) en Coolify / producción:
+
+- **Stripe**
+  - `STRIPE_SECRET_KEY`
+  - `STRIPE_WEBHOOK_SECRET`
+
+- **Supabase**
+  - `SUPABASE_URL` (o `PUBLIC_SUPABASE_URL` como fallback)
+  - `PUBLIC_SUPABASE_ANON_KEY` (o `SUPABASE_ANON_KEY`)
+  - `SUPABASE_SERVICE_ROLE_KEY`
+
+- **Emails (Brevo)**
+  - `BREVO_API_KEY`
+  - `EMAIL_FROM_EMAIL`
+  - `EMAIL_FROM_NAME`
+  - `EMAIL_ADMIN_TO`
+
+- **App / sitio**
+  - `PUBLIC_SITE_URL` (por ejemplo `https://tienda.midominio.com`)
+
+### Stripe CLI (opcional solo para testing local)
+
+En desarrollo puedes usar Stripe CLI para simular eventos contra tu servidor local:
+
+```bash
+stripe listen --forward-to http://localhost:4321/api/stripe/webhook
+```
+
+Esto es **opcional** y solo para pruebas. En producción Stripe enviará los eventos directamente a la URL pública de Coolify.
+
+### Checklist de pruebas en Coolify
+
+1. **Deploy** en Coolify con `output: server` y adapter Node ya configurado.
+2. Configurar todas las **variables de entorno** anteriores.
+3. En Stripe Dashboard, crear el **endpoint de webhook** apuntando a:
+   - `https://<TU_DOMINIO_PRODUCCION>/api/stripe/webhook`
+   - Activar los eventos: `checkout.session.completed`, `checkout.session.expired`, `payment_intent.succeeded`, `payment_intent.payment_failed`.
+4. Crear un pedido real de prueba usando tarjeta de test (`4242 4242 4242 4242`).
+5. Verificar en la base de datos:
+   - Pedido pasa de `pending` a `paid`.
+   - Se asignan `paid_at`, `stripe_payment_intent_id` y datos de factura (`invoice_token`, `invoice_number`, `invoice_issued_at`).
+   - El stock (y `size_stock` si aplica) se ha decrementado correctamente.
+6. Verificar en la UI y email:
+   - Llega el email de confirmación al comprador y al admin.
+   - En "Mis pedidos" aparece el botón de descarga de factura y el PDF se genera bien.
+7. Repetir manualmente el evento desde Stripe (reintento de webhook) y comprobar que:
+   - No se duplica el email.
+   - No se vuelve a descontar stock.
+   - El webhook responde siempre 200 (idempotente).
+
 ## 🤝 Contribución
 
 Este es un proyecto privado para tu empresa. Para colaborar, contacta al administrador del sistema.

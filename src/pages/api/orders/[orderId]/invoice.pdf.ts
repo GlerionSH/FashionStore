@@ -220,7 +220,7 @@ export const GET: APIRoute = async ({ params, request }) => {
 		return new Response('Missing token', { status: 400 });
 	}
 
-	const supabaseUrl = getEnv('PUBLIC_SUPABASE_URL');
+	const supabaseUrl = getEnv('SUPABASE_URL') ?? getEnv('PUBLIC_SUPABASE_URL');
 	const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
 
 	if (!supabaseUrl || !serviceRoleKey) {

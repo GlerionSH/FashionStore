@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { getEnv } from '../../../lib/env';
 
 export const prerender = false;
 
@@ -101,11 +102,11 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 		}
 		const normalizedItems: CheckoutItem[] = Array.from(itemsByKey.values());
 
-		const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-		const anonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-		const serviceRoleKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
-		const stripeSecretKey = import.meta.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
-		const publicSiteUrl = import.meta.env.PUBLIC_SITE_URL || process.env.PUBLIC_SITE_URL;
+		const supabaseUrl = getEnv('SUPABASE_URL') ?? getEnv('PUBLIC_SUPABASE_URL');
+		const anonKey = getEnv('SUPABASE_ANON_KEY') ?? getEnv('PUBLIC_SUPABASE_ANON_KEY');
+		const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
+		const stripeSecretKey = getEnv('STRIPE_SECRET_KEY');
+		const publicSiteUrl = getEnv('PUBLIC_SITE_URL');
 
 		console.log('[stripe env check]', {
 			hasStripe: Boolean(stripeSecretKey),
@@ -260,6 +261,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 				cancel_url: `${siteBase}/carrito`,
 				customer_email: customerEmail,
 				client_reference_id: row.order_id,
+				payment_intent_data: {
+					metadata: {
+						order_id: row.order_id,
+						...(customerUserId ? { user_id: customerUserId } : {}),
+					},
+				},
 				metadata: {
 					order_id: row.order_id,
 					...(customerUserId ? { user_id: customerUserId } : {}),
