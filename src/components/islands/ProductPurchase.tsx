@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'preact/hooks';
+import { useStore } from '@nanostores/preact';
 import AddToCartButton from './AddToCartButton';
 import { getLang } from '../../lib/i18n';
+import { cartItems } from '../../stores/cart';
 
 type Props = {
 	productId: string;
@@ -18,14 +20,35 @@ export default function ProductPurchase({ productId, name, priceCents, stock, im
 	const [selectedSize, setSelectedSize] = useState<string | null>(null);
 	const [sizeError, setSizeError] = useState(false);
 
-	// Get stock for selected size, or general stock if no sizes
+	const items = useStore(cartItems);
+
+	// How many units of this product (+ size) are already in the cart
+	const cartQty = useMemo(() => {
+		return items.reduce((sum, item) => {
+			if (item.id !== productId) return sum;
+			if (selectedSize !== null) return item.size === selectedSize ? sum + item.qty : sum;
+			return !item.size ? sum + item.qty : sum;
+		}, 0);
+	}, [items, productId, selectedSize]);
+
+	// Raw DB stock for selected size / general
 	const effectiveStock = useMemo(() => {
 		if (!hasSizes) return stock;
 		if (!selectedSize) return 0;
 		return sizeStock[selectedSize] ?? 0;
 	}, [hasSizes, selectedSize, sizeStock, stock]);
 
-	const maxStock = typeof effectiveStock === 'number' && Number.isFinite(effectiveStock) ? Math.max(0, Math.trunc(effectiveStock)) : null;
+	// Available = DB stock minus what's already in cart
+	const maxStock = useMemo(() => {
+		if (typeof effectiveStock !== 'number' || !Number.isFinite(effectiveStock)) return null;
+		return Math.max(0, Math.trunc(effectiveStock) - cartQty);
+	}, [effectiveStock, cartQty]);
+
+	const cartFull = useMemo(() => {
+		if (hasSizes && !selectedSize) return false;
+		return maxStock !== null && maxStock <= 0 && cartQty > 0;
+	}, [hasSizes, selectedSize, maxStock, cartQty]);
+
 	const canBuy = hasSizes ? (selectedSize !== null && maxStock !== null && maxStock > 0) : (maxStock === null ? true : maxStock > 0);
 
 	const [qty, setQty] = useState(1);
@@ -147,8 +170,16 @@ export default function ProductPurchase({ productId, name, priceCents, stock, im
 				qty={clampedQty}
 				size={selectedSize ?? undefined}
 				onBeforeAdd={handleAddToCart}
-				disabled={hasSizes && !selectedSize}
+				disabled={(hasSizes && !selectedSize) || cartFull || maxStock === 0}
 			/>
+
+			{cartFull && (
+				<p class="pdp-cart-full">
+					{lang === 'en'
+						? 'You already have the maximum available in your cart.'
+						: 'Ya tienes el máximo disponible en tu carrito.'}
+				</p>
+			)}
 
 			<style>{`
 				.pdp-purchase {
@@ -287,6 +318,14 @@ export default function ProductPurchase({ productId, name, priceCents, stock, im
 				.pdp-stepper-input::-webkit-inner-spin-button {
 					-webkit-appearance: none;
 					margin: 0;
+				}
+
+				.pdp-cart-full {
+					margin: 0;
+					font-size: 0.75rem;
+					letter-spacing: 0.15em;
+					text-transform: uppercase;
+					color: #6b7280;
 				}
 			`}</style>
 		</div>

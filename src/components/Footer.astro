@@ -26,8 +26,9 @@ const lang = getLangFromCookie(rawLangCookie);
 				<ul class="footer-links">
 					<li><a href="/envios">{lang === 'en' ? 'Shipping' : 'Envíos'}</a></li>
 					<li><a href="/devoluciones">{lang === 'en' ? 'Returns' : 'Devoluciones'}</a></li>
-					<li><a href="/contacto">{lang === 'en' ? 'Contact' : 'Contacto'}</a></li>
 					<li><a href="/terminos">{lang === 'en' ? 'Terms & conditions' : 'Términos y condiciones'}</a></li>
+					<li><a href="/privacidad">{lang === 'en' ? 'Privacy policy' : 'Política de privacidad'}</a></li>
+					<li><a href="/contacto">{lang === 'en' ? 'Contact' : 'Contacto'}</a></li>
 				</ul>
 			</div>
 		
@@ -37,15 +38,6 @@ const lang = getLangFromCookie(rawLangCookie);
 					<li>info@fashionstore.com</li>
 					<li>{lang === 'en' ? 'Cadiz, Spain' : 'Cádiz, España'}</li>
 					<li>{lang === 'en' ? 'Mon - Fri: 10:00 - 19:00' : 'Lun - Vie: 10:00 - 19:00'}</li>
-				</ul>
-			</div>
-		
-			<div class="footer-col">
-				<h4 class="footer-title">{lang === 'en' ? 'Social' : 'Social'}</h4>
-				<ul class="footer-links">
-					<li><a href="#" target="_blank" rel="noopener">Instagram</a></li>
-					<li><a href="#" target="_blank" rel="noopener">Twitter</a></li>
-					<li><a href="#" target="_blank" rel="noopener">Pinterest</a></li>
 				</ul>
 			</div>
 		</div>
@@ -68,7 +60,7 @@ const lang = getLangFromCookie(rawLangCookie);
 
 	.footer-grid {
 		display: grid;
-		grid-template-columns: 2fr 1fr 1fr 1fr;
+		grid-template-columns: 2fr 1fr 1fr;
 		gap: 3rem;
 	}
 

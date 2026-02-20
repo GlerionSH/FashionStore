@@ -30,6 +30,7 @@ let metrics = {
 	count_pending: 0,
 };
 let pendingReturns = 0;
+let openTickets = 0;
 
 if (adminSb) {
 	const now = new Date();
@@ -80,6 +81,13 @@ if (adminSb) {
 		.select('id', { count: 'exact', head: true })
 		.eq('status', 'requested');
 	pendingReturns = pendingReturnsCount ?? 0;
+
+	// Open support tickets count
+	const { count: openTicketsCount } = await adminSb
+		.from('fs_support_tickets')
+		.select('id', { count: 'exact', head: true })
+		.eq('status', 'open');
+	openTickets = openTicketsCount ?? 0;
 }
 
 const formatPrice = (cents: number) => formatPriceEURFromCents(cents);
@@ -198,6 +206,19 @@ const formatPrice = (cents: number) => formatPriceEURFromCents(cents);
 						{lang === 'en' ? 'Settings' : 'Configuracion'}
 					</div>
 					<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">Settings</div>
+				</a>
+				<a href="/admin-fs/soporte" style="border: 1px solid #e5e7eb; padding: 1.5rem; display: block; position: relative;">
+					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">
+						{lang === 'en' ? 'Support' : 'Soporte'}
+					</div>
+					<div style="font-size: 1rem; font-weight: 500; margin-top: 0.5rem;">
+						{lang === 'en' ? 'Support inbox' : 'Buzón de soporte'}
+					</div>
+					{openTickets > 0 && (
+						<span style="position: absolute; top: 1rem; right: 1rem; background: #dc2626; color: #fff; font-size: 0.6875rem; padding: 0.125rem 0.5rem; border-radius: 9999px;">
+							{openTickets}
+						</span>
+					)}
 				</a>
 				<a href="/productos" style="border: 1px solid #e5e7eb; padding: 1.5rem; display: block;">
 					<div style="font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca3af;">

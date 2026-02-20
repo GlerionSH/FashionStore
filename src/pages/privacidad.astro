@@ -1,0 +1,107 @@
+---
+import StoreLayout from '../layouts/StoreLayout.astro';
+import { getLangFromCookie } from '../lib/i18n';
+
+export const prerender = false;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+---
+
+<StoreLayout title={lang === 'en' ? 'Privacy Policy - Fashion Store' : 'Política de privacidad - Fashion Store'}>
+	<section style="padding: 4rem 0;">
+		<div class="container container-sm">
+			<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #9ca3af; margin-bottom: 0.75rem;">
+				{lang === 'en' ? 'Legal' : 'Legal'}
+			</p>
+			<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 2.5rem;">
+				{lang === 'en' ? 'Privacy Policy' : 'Política de privacidad'}
+			</h1>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? '1. Data controller' : '1. Responsable del tratamiento'}</h2>
+				<p class="info-text">
+					{lang === 'en'
+						? 'Fashion Store is responsible for processing your personal data collected through this website.'
+						: 'Fashion Store es el responsable del tratamiento de los datos personales recogidos a través de este sitio web.'}
+				</p>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? '2. Data we collect' : '2. Datos que recogemos'}</h2>
+				<ul class="info-list">
+					<li>{lang === 'en' ? 'Contact and identification data (name, email, address) when you place an order or register.' : 'Datos de contacto e identificación (nombre, correo, dirección) cuando realizas un pedido o te registras.'}</li>
+					<li>{lang === 'en' ? 'Payment data processed exclusively by Stripe — we do not store card details.' : 'Datos de pago gestionados exclusivamente por Stripe — no almacenamos datos de tarjeta.'}</li>
+					<li>{lang === 'en' ? 'Browsing data (cookies) to improve the user experience.' : 'Datos de navegación (cookies) para mejorar la experiencia de usuario.'}</li>
+				</ul>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? '3. Purpose of processing' : '3. Finalidad del tratamiento'}</h2>
+				<ul class="info-list">
+					<li>{lang === 'en' ? 'Processing and managing your orders and payments.' : 'Tramitar y gestionar tus pedidos y pagos.'}</li>
+					<li>{lang === 'en' ? 'Sending transactional communications (order confirmations, shipping notices).' : 'Envío de comunicaciones transaccionales (confirmaciones de pedido, avisos de envío).'}</li>
+					<li>{lang === 'en' ? 'Sending commercial communications if you have given your consent.' : 'Envío de comunicaciones comerciales si has prestado tu consentimiento.'}</li>
+					<li>{lang === 'en' ? 'Complying with legal obligations.' : 'Cumplimiento de obligaciones legales.'}</li>
+				</ul>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? '4. Your rights' : '4. Tus derechos'}</h2>
+				<p class="info-text">
+					{lang === 'en'
+						? 'You have the right to access, rectify, erase, restrict processing, and port your data, as well as to object to its processing. You can exercise these rights by contacting us at info@fashionstore.com.'
+						: 'Tienes derecho a acceder, rectificar, suprimir, limitar el tratamiento y portar tus datos, así como a oponerte a su tratamiento. Puedes ejercer estos derechos contactando con nosotros en info@fashionstore.com.'}
+				</p>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? '5. Data retention' : '5. Conservación de datos'}</h2>
+				<p class="info-text">
+					{lang === 'en'
+						? 'We retain your data for the period necessary to fulfil the purposes described above, and thereafter as required by applicable legal obligations.'
+						: 'Conservamos tus datos durante el tiempo necesario para cumplir las finalidades descritas y posteriormente el exigido por las obligaciones legales aplicables.'}
+				</p>
+			</div>
+
+			<p style="font-size: 0.8125rem; color: #9ca3af; margin-top: 2.5rem;">
+				{lang === 'en' ? 'Last updated: January 2025' : 'Última actualización: enero de 2025'}
+			</p>
+		</div>
+	</section>
+</StoreLayout>
+
+<style>
+	.info-block {
+		margin-bottom: 2rem;
+	}
+
+	.info-title {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		margin: 0 0 0.875rem;
+		color: #111;
+	}
+
+	.info-text {
+		font-size: 0.9375rem;
+		color: #4b5563;
+		line-height: 1.7;
+		margin: 0;
+	}
+
+	.info-list {
+		margin: 0;
+		padding-left: 1.25rem;
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.info-list li {
+		font-size: 0.9375rem;
+		color: #4b5563;
+		line-height: 1.6;
+	}
+</style>

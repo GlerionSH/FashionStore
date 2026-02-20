@@ -1,0 +1,562 @@
+---
+import AdminFSLayout from '../../../layouts/AdminFSLayout.astro';
+import { getSupabaseAdmin } from '../../../lib/database/supabaseServer';
+import { requireAdmin } from '../../../lib/auth/requireAdmin';
+import { getLangFromCookie } from '../../../lib/i18n';
+
+export const prerender = false;
+
+const auth = await requireAdmin(Astro.cookies);
+if (!auth.ok) return Astro.redirect('/admin-fs/login');
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+
+const ticketId = Astro.params.id;
+if (!ticketId) return Astro.redirect('/admin-fs/soporte');
+
+const sb = getSupabaseAdmin() as any;
+
+const { data: ticket, error: ticketError } = await sb
+	.from('fs_support_tickets')
+	.select('id,created_at,updated_at,status,name,email,subject,message,admin_notes,email_user_ack_sent_at,email_admin_notif_sent_at,last_error')
+	.eq('id', ticketId)
+	.maybeSingle();
+
+if (ticketError || !ticket) return Astro.redirect('/admin-fs/soporte');
+
+const { data: replies } = await sb
+	.from('fs_support_replies')
+	.select('id,created_at,reply_text,sent_to_user_at,last_error')
+	.eq('ticket_id', ticketId)
+	.order('created_at', { ascending: true });
+
+const STATUS_LABELS: Record<string, string> = {
+	open:     lang === 'en' ? 'Open'     : 'Abierto',
+	pending:  lang === 'en' ? 'Pending'  : 'Pendiente',
+	answered: lang === 'en' ? 'Answered' : 'Respondido',
+	closed:   lang === 'en' ? 'Closed'   : 'Cerrado',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+	open:     '#166534',
+	pending:  '#92400e',
+	answered: '#1e40af',
+	closed:   '#6b7280',
+};
+
+const STATUS_BG: Record<string, string> = {
+	open:     '#f0fdf4',
+	pending:  '#fffbeb',
+	answered: '#eff6ff',
+	closed:   '#f9fafb',
+};
+
+const formatDate = (iso: string) =>
+	new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', {
+		day: '2-digit', month: 'short', year: 'numeric',
+		hour: '2-digit', minute: '2-digit',
+	});
+
+const isClosed = ticket.status === 'closed';
+const shortId  = ticketId.slice(0, 8).toUpperCase();
+---
+
+<AdminFSLayout title={`Ticket ${shortId} — Admin`}>
+	<div class="container ticket-shell">
+
+		<!-- Breadcrumb -->
+		<nav class="breadcrumb">
+			<a href="/admin-fs/soporte" class="breadcrumb-link">
+				{lang === 'en' ? '← Support inbox' : '← Buzón de soporte'}
+			</a>
+		</nav>
+
+		<!-- Header -->
+		<div class="ticket-header">
+			<div>
+				<p class="page-kicker">Ref. {shortId}</p>
+				<h1 class="page-title">{ticket.subject}</h1>
+			</div>
+			<span
+				class="status-badge"
+				style={`color:${STATUS_COLORS[ticket.status] ?? '#6b7280'}; background:${STATUS_BG[ticket.status] ?? '#f9fafb'};`}
+			>
+				{STATUS_LABELS[ticket.status] ?? ticket.status}
+			</span>
+		</div>
+
+		<div class="ticket-grid">
+
+			<!-- LEFT: message + replies + reply form -->
+			<div class="ticket-main">
+
+				<!-- Original message -->
+				<div class="card">
+					<div class="card-header">
+						<span class="card-title">{lang === 'en' ? 'Original message' : 'Mensaje original'}</span>
+						<span class="card-meta">{formatDate(ticket.created_at)}</span>
+					</div>
+					<p class="message-body">{ticket.message}</p>
+				</div>
+
+				<!-- Replies thread -->
+				{(replies ?? []).length > 0 && (
+					<div class="replies-section">
+						<p class="section-label">
+							{lang === 'en' ? 'Replies' : 'Respuestas'} ({(replies as any[]).length})
+						</p>
+						{(replies as any[]).map((r) => (
+							<div class="reply-card">
+								<div class="reply-header">
+									<span class="reply-label">{lang === 'en' ? 'Admin reply' : 'Respuesta del admin'}</span>
+									<span class="reply-meta">{formatDate(r.created_at)}</span>
+								</div>
+								<p class="reply-body">{r.reply_text}</p>
+								<div class="reply-footer">
+									{r.sent_to_user_at ? (
+										<span class="sent-ok">
+											{lang === 'en' ? `✓ Sent to user at ${formatDate(r.sent_to_user_at)}` : `✓ Enviado al usuario el ${formatDate(r.sent_to_user_at)}`}
+										</span>
+									) : r.last_error ? (
+										<span class="sent-err">
+											{lang === 'en' ? `✕ Email failed: ${r.last_error}` : `✕ Email fallido: ${r.last_error}`}
+										</span>
+									) : (
+										<span class="sent-pending">
+											{lang === 'en' ? '⏳ Not sent yet' : '⏳ Sin enviar'}
+										</span>
+									)}
+								</div>
+							</div>
+						))}
+					</div>
+				)}
+
+				<!-- Reply form (hidden if closed) -->
+				{!isClosed && (
+					<div class="card" id="reply-section">
+						<div class="card-header">
+							<span class="card-title">{lang === 'en' ? 'Send reply' : 'Enviar respuesta'}</span>
+						</div>
+						<div id="reply-error" class="alert alert-error" style="display:none; margin-bottom:1rem;" aria-live="polite"></div>
+						<div id="reply-success" class="alert alert-success" style="display:none; margin-bottom:1rem;" aria-live="polite"></div>
+						<textarea
+							id="reply-text"
+							class="form-input"
+							rows={6}
+							placeholder={lang === 'en' ? 'Write your reply…' : 'Escribe tu respuesta…'}
+							style="resize:vertical;"
+						></textarea>
+						<div style="display:flex; gap:0.75rem; margin-top:1rem; flex-wrap:wrap;">
+							<button id="btn-reply" type="button" class="btn-primary">
+								<span id="btn-reply-label">{lang === 'en' ? 'Send reply' : 'Enviar respuesta'}</span>
+								<span id="btn-reply-loading" style="display:none;">{lang === 'en' ? 'Sending…' : 'Enviando…'}</span>
+							</button>
+						</div>
+					</div>
+				)}
+
+				{isClosed && (
+					<div class="alert" style="background:#f9fafb; border-color:#e5e7eb; color:#6b7280;">
+						{lang === 'en' ? 'This ticket is closed. No further replies can be sent.' : 'Este ticket está cerrado. No se pueden enviar más respuestas.'}
+					</div>
+				)}
+
+			</div>
+
+			<!-- RIGHT: metadata + actions -->
+			<div class="ticket-sidebar">
+
+				<!-- Ticket info -->
+				<div class="card">
+					<div class="card-header">
+						<span class="card-title">{lang === 'en' ? 'Details' : 'Datos'}</span>
+					</div>
+					<dl class="detail-list">
+						<dt>{lang === 'en' ? 'Name' : 'Nombre'}</dt>
+						<dd>{ticket.name}</dd>
+						<dt>Email</dt>
+						<dd>
+							<a href={`mailto:${ticket.email}`} class="detail-email">{ticket.email}</a>
+						</dd>
+						<dt>{lang === 'en' ? 'Created' : 'Creado'}</dt>
+						<dd>{formatDate(ticket.created_at)}</dd>
+						<dt>{lang === 'en' ? 'Updated' : 'Actualizado'}</dt>
+						<dd>{formatDate(ticket.updated_at)}</dd>
+						<dt>{lang === 'en' ? 'User ack sent' : 'Ack enviado'}</dt>
+						<dd>{ticket.email_user_ack_sent_at ? formatDate(ticket.email_user_ack_sent_at) : '—'}</dd>
+						<dt>{lang === 'en' ? 'Admin notif sent' : 'Notif admin'}</dt>
+						<dd>{ticket.email_admin_notif_sent_at ? formatDate(ticket.email_admin_notif_sent_at) : '—'}</dd>
+						{ticket.last_error && (
+							<>
+								<dt class="detail-err-label">{lang === 'en' ? 'Last error' : 'Último error'}</dt>
+								<dd class="detail-err">{ticket.last_error}</dd>
+							</>
+						)}
+					</dl>
+				</div>
+
+				<!-- Admin notes -->
+				<div class="card">
+					<div class="card-header">
+						<span class="card-title">{lang === 'en' ? 'Admin notes' : 'Notas internas'}</span>
+					</div>
+					<textarea
+						id="admin-notes"
+						class="form-input"
+						rows={4}
+						placeholder={lang === 'en' ? 'Internal notes (not sent to user)…' : 'Notas internas (no se envían al usuario)…'}
+						style="resize:vertical;"
+					>{ticket.admin_notes ?? ''}</textarea>
+					<button id="btn-save-notes" type="button" class="btn-secondary" style="margin-top:0.75rem; padding:0.625rem 1.25rem; font-size:0.75rem;">
+						{lang === 'en' ? 'Save notes' : 'Guardar notas'}
+					</button>
+					<span id="notes-saved" style="display:none; font-size:0.75rem; color:#166534; margin-left:0.75rem;">✓</span>
+					<span id="notes-error" style="display:none; font-size:0.75rem; color:#991b1b; margin-left:0.75rem;">
+						{lang === 'en' ? 'Could not save.' : 'Error al guardar.'}
+					</span>
+				</div>
+
+				<!-- Actions -->
+				{!isClosed && (
+					<div class="card">
+						<div class="card-header">
+							<span class="card-title">{lang === 'en' ? 'Actions' : 'Acciones'}</span>
+						</div>
+						<button id="btn-close-ticket" type="button" class="btn-danger" style="width:100%; padding:0.75rem;">
+							{lang === 'en' ? 'Close ticket' : 'Cerrar ticket'}
+						</button>
+						<div id="close-error" class="alert alert-error" style="display:none; margin-top:0.75rem;" aria-live="polite"></div>
+					</div>
+				)}
+
+			</div>
+		</div>
+	</div>
+</AdminFSLayout>
+
+<script define:vars={{ ticketId, lang, isClosed }}>
+	(() => {
+		// ── Reply ──────────────────────────────────────────────────────────
+		const btnReply       = document.getElementById('btn-reply');
+		const btnReplyLabel  = document.getElementById('btn-reply-label');
+		const btnReplyLoading= document.getElementById('btn-reply-loading');
+		const replyText      = document.getElementById('reply-text');
+		const replyError     = document.getElementById('reply-error');
+		const replySuccess   = document.getElementById('reply-success');
+
+		if (btnReply && !isClosed) {
+			btnReply.addEventListener('click', async () => {
+				const text = replyText?.value?.trim() ?? '';
+				if (!text) {
+					showEl(replyError, lang === 'en' ? 'Reply text is required.' : 'La respuesta no puede estar vacía.');
+					return;
+				}
+				hideEl(replyError);
+				hideEl(replySuccess);
+				setLoading(btnReply, btnReplyLabel, btnReplyLoading, true);
+
+				try {
+					const res  = await fetch(`/api/admin/support/ticket/${ticketId}/reply`, {
+						method:  'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body:    JSON.stringify({ reply_text: text }),
+					});
+					const json = await res.json().catch(() => ({}));
+
+					if (!res.ok) {
+						const msg = json?.error === 'ticket_closed'
+							? (lang === 'en' ? 'Ticket is already closed.' : 'El ticket ya está cerrado.')
+							: (lang === 'en' ? 'Could not send reply.' : 'No se pudo enviar la respuesta.');
+						showEl(replyError, msg);
+					} else {
+						showEl(replySuccess, lang === 'en' ? 'Reply sent. Reloading…' : 'Respuesta enviada. Recargando…');
+						if (replyText) replyText.value = '';
+						setTimeout(() => window.location.reload(), 1200);
+					}
+				} catch {
+					showEl(replyError, lang === 'en' ? 'Network error.' : 'Error de red.');
+				} finally {
+					setLoading(btnReply, btnReplyLabel, btnReplyLoading, false);
+				}
+			});
+		}
+
+		// ── Close ticket ───────────────────────────────────────────────────
+		const btnClose    = document.getElementById('btn-close-ticket');
+		const closeError  = document.getElementById('close-error');
+
+		if (btnClose) {
+			btnClose.addEventListener('click', async () => {
+				const confirmed = confirm(
+					lang === 'en'
+						? 'Close this ticket? No more replies can be sent after closing.'
+						: '¿Cerrar este ticket? No se podrán enviar más respuestas.'
+				);
+				if (!confirmed) return;
+				hideEl(closeError);
+				btnClose.disabled = true;
+
+				try {
+					const res  = await fetch(`/api/admin/support/ticket/${ticketId}/close`, { method: 'POST' });
+					const json = await res.json().catch(() => ({}));
+
+					if (!res.ok) {
+						showEl(closeError, lang === 'en' ? 'Could not close ticket.' : 'No se pudo cerrar el ticket.');
+						btnClose.disabled = false;
+					} else {
+						window.location.reload();
+					}
+				} catch {
+					showEl(closeError, lang === 'en' ? 'Network error.' : 'Error de red.');
+					btnClose.disabled = false;
+				}
+			});
+		}
+
+		// ── Save admin notes ───────────────────────────────────────────────
+		const btnNotes    = document.getElementById('btn-save-notes');
+		const notesSaved  = document.getElementById('notes-saved');
+		const adminNotes  = document.getElementById('admin-notes');
+
+		const notesError = document.getElementById('notes-error');
+
+		if (btnNotes) {
+			btnNotes.addEventListener('click', async () => {
+				const notes = adminNotes?.value ?? '';
+				btnNotes.disabled = true;
+				hideEl(notesSaved);
+				hideEl(notesError);
+
+				try {
+					const res = await fetch(`/api/admin/support/ticket/${ticketId}/notes`, {
+						method:  'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body:    JSON.stringify({ admin_notes: notes }),
+					});
+					if (res.ok) {
+						if (notesSaved) {
+							notesSaved.style.display = '';
+							setTimeout(() => { if (notesSaved) notesSaved.style.display = 'none'; }, 2000);
+						}
+					} else {
+						showEl(notesError, undefined);
+						setTimeout(() => hideEl(notesError), 3000);
+					}
+				} catch {
+					showEl(notesError, undefined);
+					setTimeout(() => hideEl(notesError), 3000);
+				} finally {
+					btnNotes.disabled = false;
+				}
+			});
+		}
+
+		// ── Helpers ────────────────────────────────────────────────────────
+		function showEl(el, msg) {
+			if (el instanceof HTMLElement) {
+				if (msg !== undefined) el.textContent = msg;
+				el.style.display = '';
+			}
+		}
+		function hideEl(el) {
+			if (el instanceof HTMLElement) el.style.display = 'none';
+		}
+		function setLoading(btn, labelEl, loadingEl, on) {
+			if (btn instanceof HTMLButtonElement) btn.disabled = on;
+			if (labelEl)   labelEl.style.display   = on ? 'none' : '';
+			if (loadingEl) loadingEl.style.display = on ? ''     : 'none';
+		}
+	})();
+</script>
+
+<style>
+	.ticket-shell {
+		padding-top: 2rem;
+		padding-bottom: 4rem;
+		max-width: 1100px;
+	}
+
+	.breadcrumb {
+		margin-bottom: 1.5rem;
+	}
+
+	.breadcrumb-link {
+		font-size: 0.8125rem;
+		color: #6b7280;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+
+	.ticket-header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 2rem;
+		flex-wrap: wrap;
+	}
+
+	.page-kicker {
+		font-size: 0.75rem;
+		letter-spacing: 0.2em;
+		text-transform: uppercase;
+		color: #9ca3af;
+		margin: 0 0 0.375rem;
+	}
+
+	.page-title {
+		font-size: 1.25rem;
+		font-weight: 400;
+		letter-spacing: 0.04em;
+		margin: 0;
+	}
+
+	.status-badge {
+		display: inline-block;
+		padding: 0.375rem 0.875rem;
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		border-radius: 2px;
+		white-space: nowrap;
+		align-self: flex-start;
+		margin-top: 0.25rem;
+	}
+
+	.ticket-grid {
+		display: grid;
+		grid-template-columns: 1fr 320px;
+		gap: 2rem;
+		align-items: start;
+	}
+
+	@media (max-width: 900px) {
+		.ticket-grid {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.card {
+		border: 1px solid #e5e7eb;
+		padding: 1.25rem;
+		margin-bottom: 1.25rem;
+	}
+
+	.card-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 1rem;
+		padding-bottom: 0.75rem;
+		border-bottom: 1px solid #f3f4f6;
+	}
+
+	.card-title {
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		color: #6b7280;
+	}
+
+	.card-meta {
+		font-size: 0.8125rem;
+		color: #9ca3af;
+	}
+
+	.message-body {
+		font-size: 0.9375rem;
+		color: #374151;
+		line-height: 1.7;
+		white-space: pre-wrap;
+		margin: 0;
+	}
+
+	.section-label {
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		color: #6b7280;
+		margin: 0 0 0.875rem;
+	}
+
+	.replies-section {
+		margin-bottom: 1.25rem;
+	}
+
+	.reply-card {
+		border: 1px solid #e5e7eb;
+		border-left: 3px solid #111;
+		padding: 1rem;
+		margin-bottom: 0.875rem;
+		background: #fafafa;
+	}
+
+	.reply-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 0.75rem;
+	}
+
+	.reply-label {
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: #111;
+	}
+
+	.reply-meta {
+		font-size: 0.8125rem;
+		color: #9ca3af;
+	}
+
+	.reply-body {
+		font-size: 0.9375rem;
+		color: #111;
+		line-height: 1.7;
+		white-space: pre-wrap;
+		margin: 0 0 0.75rem;
+	}
+
+	.reply-footer {
+		font-size: 0.75rem;
+	}
+
+	.sent-ok      { color: #166534; }
+	.sent-err     { color: #991b1b; }
+	.sent-pending { color: #92400e; }
+
+	.detail-list {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: 0.5rem 1rem;
+		font-size: 0.875rem;
+	}
+
+	dt {
+		color: #6b7280;
+		font-weight: 400;
+		white-space: nowrap;
+	}
+
+	dd {
+		color: #111;
+		margin: 0;
+		word-break: break-all;
+	}
+
+	.detail-email {
+		color: #111;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+
+	.detail-err-label { color: #991b1b; }
+	.detail-err       { color: #991b1b; font-size: 0.8125rem; word-break: break-all; }
+</style>

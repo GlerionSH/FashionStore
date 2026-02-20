@@ -25,6 +25,8 @@ type ProductRow = {
 	category_id: string;
 	images: unknown;
 	is_active: boolean;
+	sizes?: string[];
+	size_stock?: Record<string, number>;
 };
 
 const { slug } = Astro.params;
@@ -54,7 +56,7 @@ let productsError: unknown = null;
 if (category) {
 	const { data: productsData, error } = await sb
 		.from('fs_products')
-		.select('id,name,name_es,name_en,slug,price_cents,stock,category_id,images,is_active')
+		.select('id,name,name_es,name_en,slug,price_cents,stock,category_id,images,is_active,sizes,size_stock')
 		.eq('category_id', category.id)
 		.eq('is_active', true)
 		;
@@ -113,7 +115,19 @@ const notFoundText =
 			{products.map((product) => (
 				<article class="card">
 					<h3>{getProductName(product, lang)}</h3>
-					<div class="helper-text">Stock: {product.stock}</div>
+					{(() => {
+						const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
+						const isAvailable = hasSizes
+							? Object.values(product.size_stock ?? {}).some((v) => (v as number) > 0)
+							: product.stock > 0;
+						return (
+							<div class="helper-text" style={`color: ${isAvailable ? '#111' : '#9ca3af'};`}>
+								{isAvailable
+									? (lang === 'en' ? 'Available' : 'Disponible')
+									: (lang === 'en' ? 'Out of stock' : 'Agotado')}
+							</div>
+						);
+					})()}
 					{(() => {
 						const discounted = discountPercent > 0 ? applyPercentDiscountCents(product.price_cents, discountPercent) : product.price_cents;
 						const hasDiscount = discountPercent > 0 && discounted < product.price_cents;

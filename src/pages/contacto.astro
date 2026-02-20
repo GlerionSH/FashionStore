@@ -1,0 +1,324 @@
+---
+import StoreLayout from '../layouts/StoreLayout.astro';
+import { getLangFromCookie } from '../lib/i18n';
+
+export const prerender = false;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+---
+
+<StoreLayout title={lang === 'en' ? 'Contact - Fashion Store' : 'Contacto - Fashion Store'}>
+	<section style="padding: 4rem 0;">
+		<div class="container contact-shell">
+			<p class="contact-kicker">
+				{lang === 'en' ? 'Get in touch' : 'Escríbenos'}
+			</p>
+			<h1 class="contact-title">
+				{lang === 'en' ? 'Contact' : 'Contacto'}
+			</h1>
+
+			<div class="contact-grid">
+				<!-- Info column -->
+				<div>
+					<div class="info-block">
+						<h2 class="info-title">{lang === 'en' ? 'Email' : 'Correo electrónico'}</h2>
+						<p class="info-text">
+							<a href="mailto:info@fashionstore.com" style="color: #111; text-decoration: underline; text-underline-offset: 4px;">
+								info@fashionstore.com
+							</a>
+						</p>
+					</div>
+
+					<div class="info-block">
+						<h2 class="info-title">{lang === 'en' ? 'Hours' : 'Horario'}</h2>
+						<ul class="info-list">
+							<li>{lang === 'en' ? 'Monday – Friday: 10:00 – 19:00' : 'Lunes – Viernes: 10:00 – 19:00'}</li>
+							<li>{lang === 'en' ? 'Saturday: 10:00 – 14:00' : 'Sábado: 10:00 – 14:00'}</li>
+							<li>{lang === 'en' ? 'Sunday and public holidays: closed' : 'Domingo y festivos: cerrado'}</li>
+						</ul>
+					</div>
+
+					<div class="info-block">
+						<h2 class="info-title">{lang === 'en' ? 'Location' : 'Ubicación'}</h2>
+						<p class="info-text">{lang === 'en' ? 'Cádiz, Spain' : 'Cádiz, España'}</p>
+					</div>
+
+					<div class="info-block">
+						<h2 class="info-title">{lang === 'en' ? 'Response time' : 'Tiempo de respuesta'}</h2>
+						<p class="info-text">
+							{lang === 'en'
+								? 'We aim to reply within 24 hours on business days.'
+								: 'Intentamos responder en menos de 24 horas los días hábiles.'}
+						</p>
+					</div>
+				</div>
+
+				<!-- Form column -->
+				<div>
+					<!-- Success state (hidden by default) -->
+					<div id="contact-success" class="contact-success" style="display:none;" aria-live="polite">
+						<p class="contact-success-icon">✓</p>
+						<p class="contact-success-title">
+							{lang === 'en' ? 'Message sent' : 'Mensaje enviado'}
+						</p>
+						<p class="contact-success-body">
+							{lang === 'en'
+								? 'We have received your query. Check your email for confirmation.'
+								: 'Hemos recibido tu consulta. Revisa tu correo para la confirmación.'}
+						</p>
+					</div>
+
+					<!-- Form (visible by default) -->
+					<form id="contact-form" novalidate style="display: grid; gap: 1rem;">
+						<div>
+							<label class="form-label" for="contact-name">
+								{lang === 'en' ? 'Name' : 'Nombre'} <span aria-hidden="true">*</span>
+							</label>
+							<input
+								class="form-input"
+								type="text"
+								id="contact-name"
+								name="name"
+								required
+								autocomplete="name"
+								placeholder={lang === 'en' ? 'Your name' : 'Tu nombre'}
+							/>
+						</div>
+						<div>
+							<label class="form-label" for="contact-email">
+								{lang === 'en' ? 'Email' : 'Correo electrónico'} <span aria-hidden="true">*</span>
+							</label>
+							<input
+								class="form-input"
+								type="email"
+								id="contact-email"
+								name="email"
+								required
+								autocomplete="email"
+								placeholder={lang === 'en' ? 'your@email.com' : 'tu@correo.com'}
+							/>
+						</div>
+						<div>
+							<label class="form-label" for="contact-subject">
+								{lang === 'en' ? 'Subject' : 'Asunto'} <span aria-hidden="true">*</span>
+							</label>
+							<input
+								class="form-input"
+								type="text"
+								id="contact-subject"
+								name="subject"
+								required
+								placeholder={lang === 'en' ? 'How can we help?' : '¿En qué podemos ayudarte?'}
+							/>
+						</div>
+						<div>
+							<label class="form-label" for="contact-message">
+								{lang === 'en' ? 'Message' : 'Mensaje'} <span aria-hidden="true">*</span>
+							</label>
+							<textarea
+								class="form-input"
+								id="contact-message"
+								name="message"
+								rows={5}
+								required
+								placeholder={lang === 'en' ? 'Write your message here…' : 'Escribe tu mensaje aquí…'}
+							></textarea>
+						</div>
+
+						<div id="contact-error" class="alert alert-error" style="display:none;" aria-live="polite"></div>
+
+						<button type="submit" id="contact-submit" class="btn-primary contact-btn">
+							<span id="contact-btn-label">
+								{lang === 'en' ? 'Send message' : 'Enviar mensaje'}
+							</span>
+							<span id="contact-btn-loading" style="display:none;">
+								{lang === 'en' ? 'Sending…' : 'Enviando…'}
+							</span>
+						</button>
+					</form>
+				</div>
+			</div>
+		</div>
+	</section>
+</StoreLayout>
+
+<script define:vars={{ lang }}>
+	(() => {
+		const form    = document.getElementById('contact-form');
+		const success = document.getElementById('contact-success');
+		const errBox  = document.getElementById('contact-error');
+		const submit  = document.getElementById('contact-submit');
+		const btnLabel   = document.getElementById('contact-btn-label');
+		const btnLoading = document.getElementById('contact-btn-loading');
+
+		if (!(form instanceof HTMLFormElement)) return;
+
+		const setLoading = (on) => {
+			if (submit instanceof HTMLButtonElement) submit.disabled = on;
+			if (btnLabel)   btnLabel.style.display   = on ? 'none'   : '';
+			if (btnLoading) btnLoading.style.display = on ? ''       : 'none';
+		};
+
+		const showError = (msg) => {
+			if (errBox instanceof HTMLElement) {
+				errBox.textContent = msg;
+				errBox.style.display = '';
+			}
+		};
+
+		const hideError = () => {
+			if (errBox instanceof HTMLElement) errBox.style.display = 'none';
+		};
+
+		const ERROR_MESSAGES = {
+			name_required:    lang === 'en' ? 'Please enter your name.'          : 'Por favor, introduce tu nombre.',
+			email_invalid:    lang === 'en' ? 'Please enter a valid email.'       : 'Introduce un correo válido.',
+			subject_required: lang === 'en' ? 'Please enter a subject.'           : 'Por favor, indica el asunto.',
+			message_too_short:lang === 'en' ? 'Message must be at least 10 chars.': 'El mensaje es demasiado corto.',
+			generic:          lang === 'en' ? 'Something went wrong. Please try again.' : 'Algo salió mal. Inténtalo de nuevo.',
+		};
+
+		form.addEventListener('submit', async (e) => {
+			e.preventDefault();
+			hideError();
+
+			const data = {
+				name:    form.querySelector('#contact-name')?.value?.trim()    ?? '',
+				email:   form.querySelector('#contact-email')?.value?.trim()   ?? '',
+				subject: form.querySelector('#contact-subject')?.value?.trim() ?? '',
+				message: form.querySelector('#contact-message')?.value?.trim() ?? '',
+			};
+
+			if (!data.name)    { showError(ERROR_MESSAGES.name_required);    return; }
+			if (!data.email)   { showError(ERROR_MESSAGES.email_invalid);     return; }
+			if (!data.subject) { showError(ERROR_MESSAGES.subject_required);  return; }
+			if (data.message.length < 10) { showError(ERROR_MESSAGES.message_too_short); return; }
+
+			setLoading(true);
+
+			try {
+				const res  = await fetch('/api/support/ticket', {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body:    JSON.stringify(data),
+				});
+				const json = await res.json().catch(() => ({}));
+
+				if (!res.ok) {
+					const code = json?.error ?? 'generic';
+					showError(ERROR_MESSAGES[code] ?? ERROR_MESSAGES.generic);
+					setLoading(false);
+					return;
+				}
+
+				// Success
+				form.style.display = 'none';
+				if (success instanceof HTMLElement) success.style.display = '';
+			} catch {
+				showError(ERROR_MESSAGES.generic);
+				setLoading(false);
+			}
+		});
+	})();
+</script>
+
+<style>
+	.contact-shell {
+		max-width: 900px;
+	}
+
+	.contact-kicker {
+		font-size: 0.75rem;
+		letter-spacing: 0.2em;
+		text-transform: uppercase;
+		color: #9ca3af;
+		margin: 0 0 0.75rem;
+	}
+
+	.contact-title {
+		font-size: 1.5rem;
+		font-weight: 400;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		margin: 0 0 2.5rem;
+	}
+
+	.contact-grid {
+		display: grid;
+		gap: 3rem;
+		grid-template-columns: 1fr 1fr;
+	}
+
+	@media (max-width: 640px) {
+		.contact-grid {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.contact-success {
+		border: 1px solid #bbf7d0;
+		background: #f0fdf4;
+		padding: 2.5rem;
+		text-align: center;
+	}
+
+	.contact-success-icon {
+		font-size: 2rem;
+		color: #16a34a;
+		margin: 0 0 0.75rem;
+	}
+
+	.contact-success-title {
+		font-size: 1rem;
+		font-weight: 500;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: #111;
+		margin: 0 0 0.75rem;
+	}
+
+	.contact-success-body {
+		font-size: 0.9375rem;
+		color: #4b5563;
+		line-height: 1.7;
+		margin: 0;
+	}
+
+	.contact-btn {
+		width: fit-content;
+	}
+
+	.info-block {
+		margin-bottom: 1.75rem;
+	}
+
+	.info-title {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		margin: 0 0 0.625rem;
+		color: #111;
+	}
+
+	.info-text {
+		font-size: 0.9375rem;
+		color: #4b5563;
+		line-height: 1.7;
+		margin: 0;
+	}
+
+	.info-list {
+		margin: 0;
+		padding-left: 1.25rem;
+		display: grid;
+		gap: 0.375rem;
+	}
+
+	.info-list li {
+		font-size: 0.9375rem;
+		color: #4b5563;
+		line-height: 1.6;
+	}
+</style>

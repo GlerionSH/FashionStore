@@ -1,0 +1,325 @@
+---
+import AdminFSLayout from '../../layouts/AdminFSLayout.astro';
+import { getSupabaseAdmin } from '../../lib/database/supabaseServer';
+import { requireAdmin } from '../../lib/auth/requireAdmin';
+import { getLangFromCookie } from '../../lib/i18n';
+
+export const prerender = false;
+
+const auth = await requireAdmin(Astro.cookies);
+if (!auth.ok) return Astro.redirect('/admin-fs/login');
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+
+const sb = getSupabaseAdmin() as any;
+
+// ── P1-2: Sanitize search string for safe use inside PostgREST .or() ──────
+const sanitizePostgrestSearch = (raw: string): string =>
+	raw
+		.trim()
+		.slice(0, 80)
+		.replace(/[%_(),.'"\\]/g, '');
+
+// ── Filters from query params ──────────────────────────────────────────
+const url    = Astro.url;
+const status = url.searchParams.get('status') ?? '';
+const search = url.searchParams.get('q')      ?? '';
+const page   = Math.max(1, parseInt(url.searchParams.get('page') ?? '1', 10));
+const PAGE_SIZE = 30;
+
+let query = sb
+	.from('fs_support_tickets')
+	.select('id,created_at,status,name,email,subject', { count: 'exact' })
+	.order('created_at', { ascending: false })
+	.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+
+if (status) query = query.eq('status', status);
+if (search) {
+	const safeSearch = sanitizePostgrestSearch(search);
+	if (safeSearch) {
+		query = query.or(`email.ilike.%${safeSearch}%,subject.ilike.%${safeSearch}%,name.ilike.%${safeSearch}%`);
+	}
+}
+
+const { data: tickets, count, error } = await query;
+
+const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
+
+const STATUS_LABELS: Record<string, string> = {
+	open:     lang === 'en' ? 'Open'     : 'Abierto',
+	pending:  lang === 'en' ? 'Pending'  : 'Pendiente',
+	answered: lang === 'en' ? 'Answered' : 'Respondido',
+	closed:   lang === 'en' ? 'Closed'   : 'Cerrado',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+	open:     '#166534',   // green
+	pending:  '#92400e',   // amber
+	answered: '#1e40af',   // blue
+	closed:   '#6b7280',   // gray
+};
+
+const STATUS_BG: Record<string, string> = {
+	open:     '#f0fdf4',
+	pending:  '#fffbeb',
+	answered: '#eff6ff',
+	closed:   '#f9fafb',
+};
+
+const formatDate = (iso: string) =>
+	new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', {
+		day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+	});
+
+const buildUrl = (params: Record<string, string | number>) => {
+	const p = new URLSearchParams();
+	if (status)             p.set('status', status);
+	if (search)             p.set('q', search);
+	if (page > 1)           p.set('page', String(page));
+	for (const [k, v] of Object.entries(params)) {
+		if (v === '' || v === 0) p.delete(k);
+		else p.set(k, String(v));
+	}
+	const s = p.toString();
+	return `/admin-fs/soporte${s ? `?${s}` : ''}`;
+};
+---
+
+<AdminFSLayout title="Soporte — Admin">
+	<div class="container" style="padding-top: 2.5rem; padding-bottom: 4rem;">
+
+		<!-- Header -->
+		<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2rem; flex-wrap:wrap; gap:1rem;">
+			<div>
+				<p class="page-kicker">{lang === 'en' ? 'Admin' : 'Admin'}</p>
+				<h1 class="page-title">{lang === 'en' ? 'Support inbox' : 'Buzón de soporte'}</h1>
+			</div>
+			<span class="badge-count">{count ?? 0} {lang === 'en' ? 'tickets' : 'tickets'}</span>
+		</div>
+
+		<!-- Filters -->
+		<form method="get" action="/admin-fs/soporte" class="filters-bar">
+			<input
+				type="search"
+				name="q"
+				value={search}
+				placeholder={lang === 'en' ? 'Search by name, email or subject…' : 'Buscar por nombre, email o asunto…'}
+				class="form-input filters-search"
+			/>
+			<select name="status" class="form-input filters-select">
+				<option value="" selected={!status}>{lang === 'en' ? 'All statuses' : 'Todos los estados'}</option>
+				<option value="open"     selected={status === 'open'}>     {STATUS_LABELS.open}</option>
+				<option value="pending"  selected={status === 'pending'}>  {STATUS_LABELS.pending}</option>
+				<option value="answered" selected={status === 'answered'}> {STATUS_LABELS.answered}</option>
+				<option value="closed"   selected={status === 'closed'}>   {STATUS_LABELS.closed}</option>
+			</select>
+			<button type="submit" class="btn-primary" style="padding:0.75rem 1.5rem;">
+				{lang === 'en' ? 'Filter' : 'Filtrar'}
+			</button>
+			{(search || status) && (
+				<a href="/admin-fs/soporte" class="btn-secondary" style="padding:0.75rem 1.5rem; text-decoration:none;">
+					{lang === 'en' ? 'Clear' : 'Limpiar'}
+				</a>
+			)}
+		</form>
+
+		{error && (
+			<div class="alert alert-error" style="margin-bottom:1.5rem;">
+				{lang === 'en' ? 'Could not load tickets.' : 'Error al cargar tickets.'}
+			</div>
+		)}
+
+		<!-- Table -->
+		{(!tickets || tickets.length === 0) ? (
+			<div class="empty-state">
+				<p>{lang === 'en' ? 'No tickets found.' : 'No se encontraron tickets.'}</p>
+			</div>
+		) : (
+			<div class="table-wrap">
+				<table>
+					<thead>
+						<tr>
+							<th>{lang === 'en' ? 'Date' : 'Fecha'}</th>
+							<th>{lang === 'en' ? 'Name / Email' : 'Nombre / Email'}</th>
+							<th>{lang === 'en' ? 'Subject' : 'Asunto'}</th>
+							<th>{lang === 'en' ? 'Status' : 'Estado'}</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody>
+						{(tickets as any[]).map((t) => (
+							<tr class="ticket-row">
+								<td class="td-date">{formatDate(t.created_at)}</td>
+								<td>
+									<div class="td-name">{t.name}</div>
+									<div class="td-email">{t.email}</div>
+								</td>
+								<td class="td-subject">{t.subject}</td>
+								<td>
+									<span
+										class="status-badge"
+										style={`color:${STATUS_COLORS[t.status] ?? '#6b7280'}; background:${STATUS_BG[t.status] ?? '#f9fafb'};`}
+									>
+										{STATUS_LABELS[t.status] ?? t.status}
+									</span>
+								</td>
+								<td>
+									<a
+										href={`/admin-fs/soporte/${t.id}`}
+										class="view-link"
+									>
+										{lang === 'en' ? 'View →' : 'Ver →'}
+									</a>
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+		)}
+
+		<!-- Pagination -->
+		{totalPages > 1 && (
+			<div class="pagination">
+				{page > 1 && (
+					<a href={buildUrl({ page: page - 1 })} class="page-btn">
+						← {lang === 'en' ? 'Prev' : 'Ant.'}
+					</a>
+				)}
+				<span class="page-info">{page} / {totalPages}</span>
+				{page < totalPages && (
+					<a href={buildUrl({ page: page + 1 })} class="page-btn">
+						{lang === 'en' ? 'Next' : 'Sig.'} →
+					</a>
+				)}
+			</div>
+		)}
+	</div>
+</AdminFSLayout>
+
+<style>
+	.page-kicker {
+		font-size: 0.75rem;
+		letter-spacing: 0.2em;
+		text-transform: uppercase;
+		color: #9ca3af;
+		margin: 0 0 0.375rem;
+	}
+
+	.page-title {
+		font-size: 1.5rem;
+		font-weight: 400;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		margin: 0;
+	}
+
+	.badge-count {
+		font-size: 0.75rem;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: #6b7280;
+		background: #f3f4f6;
+		border: 1px solid #e5e7eb;
+		padding: 0.375rem 0.875rem;
+	}
+
+	.filters-bar {
+		display: flex;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+		margin-bottom: 1.5rem;
+		align-items: center;
+	}
+
+	.filters-search {
+		flex: 1;
+		min-width: 220px;
+		padding: 0.75rem 1rem;
+	}
+
+	.filters-select {
+		width: auto;
+		padding: 0.75rem 1rem;
+		cursor: pointer;
+	}
+
+	.table-wrap {
+		overflow-x: auto;
+		border: 1px solid #e5e7eb;
+	}
+
+	.ticket-row:hover td {
+		background: #fafafa;
+	}
+
+	.td-date {
+		font-size: 0.8125rem;
+		color: #6b7280;
+		white-space: nowrap;
+	}
+
+	.td-name {
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: #111;
+	}
+
+	.td-email {
+		font-size: 0.8125rem;
+		color: #6b7280;
+	}
+
+	.td-subject {
+		font-size: 0.875rem;
+		color: #374151;
+		max-width: 280px;
+	}
+
+	.status-badge {
+		display: inline-block;
+		padding: 0.25rem 0.625rem;
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		border-radius: 2px;
+	}
+
+	.view-link {
+		font-size: 0.8125rem;
+		color: #111;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		white-space: nowrap;
+	}
+
+	.empty-state {
+		border: 1px solid #e5e7eb;
+		padding: 3rem;
+		text-align: center;
+		color: #9ca3af;
+		font-size: 0.875rem;
+	}
+
+	.pagination {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		margin-top: 1.5rem;
+		justify-content: center;
+	}
+
+	.page-btn {
+		font-size: 0.8125rem;
+		color: #111;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+
+	.page-info {
+		font-size: 0.8125rem;
+		color: #6b7280;
+	}
+</style>

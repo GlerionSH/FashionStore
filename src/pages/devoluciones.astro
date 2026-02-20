@@ -1,0 +1,101 @@
+---
+import StoreLayout from '../layouts/StoreLayout.astro';
+import { getLangFromCookie } from '../lib/i18n';
+
+export const prerender = false;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+---
+
+<StoreLayout title={lang === 'en' ? 'Returns - Fashion Store' : 'Devoluciones - Fashion Store'}>
+	<section style="padding: 4rem 0;">
+		<div class="container container-sm">
+			<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #9ca3af; margin-bottom: 0.75rem;">
+				{lang === 'en' ? 'Information' : 'Información'}
+			</p>
+			<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 2.5rem;">
+				{lang === 'en' ? 'Returns & Exchanges' : 'Devoluciones y cambios'}
+			</h1>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? 'Return period' : 'Plazo de devolución'}</h2>
+				<p class="info-text">
+					{lang === 'en'
+						? 'You have 30 calendar days from the date of delivery to request a return or exchange. After this period we cannot process the request.'
+						: 'Dispones de 30 días naturales desde la fecha de entrega para solicitar una devolución o cambio. Pasado este plazo no podremos tramitarla.'}
+				</p>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? 'Conditions' : 'Condiciones'}</h2>
+				<ul class="info-list">
+					<li>{lang === 'en' ? 'Items must be in original condition: unworn, unwashed, with all tags attached.' : 'Los artículos deben estar en su estado original: sin usar, sin lavar y con todas las etiquetas puestas.'}</li>
+					<li>{lang === 'en' ? 'Items showing signs of use or damage will not be accepted.' : 'No se aceptarán artículos con señales de uso o deterioro.'}</li>
+					<li>{lang === 'en' ? 'Items must be returned in their original packaging where possible.' : 'Los artículos deben devolverse en su embalaje original siempre que sea posible.'}</li>
+					<li>{lang === 'en' ? 'Intimate garments and swimwear are excluded from returns for hygiene reasons.' : 'Las prendas íntimas y la ropa de baño quedan excluidas de devolución por razones higiénicas.'}</li>
+				</ul>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? 'How to return' : 'Cómo devolver'}</h2>
+				<ul class="info-list">
+					<li>{lang === 'en' ? 'Go to My account → My orders and select the item you want to return.' : 'Accede a Mi cuenta → Mis pedidos y selecciona el artículo que deseas devolver.'}</li>
+					<li>{lang === 'en' ? 'Fill in the return form indicating the reason.' : 'Rellena el formulario de devolución indicando el motivo.'}</li>
+					<li>{lang === 'en' ? 'We will send you a prepaid label within 24 h (business days).' : 'Te enviaremos una etiqueta de devolución prepagada en un plazo de 24 h (días hábiles).'}</li>
+					<li>{lang === 'en' ? 'Pack the items securely and drop off at any authorised collection point.' : 'Empaqueta los artículos de forma segura y deposítalos en cualquier punto de recogida autorizado.'}</li>
+				</ul>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? 'Refund' : 'Reembolso'}</h2>
+				<p class="info-text">
+					{lang === 'en'
+						? 'Once we receive and inspect the return we will process the refund within 5–7 business days to the original payment method. You will receive a confirmation email.'
+						: 'Una vez recibida y revisada la devolución, procesaremos el reembolso en un plazo de 5–7 días hábiles al método de pago original. Recibirás un correo de confirmación.'}
+				</p>
+			</div>
+
+			<p style="margin-top: 2.5rem;">
+				<a href="/contacto" style="font-size: 0.875rem; color: #111; text-decoration: underline; text-underline-offset: 4px;">
+					{lang === 'en' ? 'Need help? Contact us' : '¿Necesitas ayuda? Contáctanos'}
+				</a>
+			</p>
+		</div>
+	</section>
+</StoreLayout>
+
+<style>
+	.info-block {
+		margin-bottom: 2rem;
+	}
+
+	.info-title {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		margin: 0 0 0.875rem;
+		color: #111;
+	}
+
+	.info-text {
+		font-size: 0.9375rem;
+		color: #4b5563;
+		line-height: 1.7;
+		margin: 0;
+	}
+
+	.info-list {
+		margin: 0;
+		padding-left: 1.25rem;
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.info-list li {
+		font-size: 0.9375rem;
+		color: #4b5563;
+		line-height: 1.6;
+	}
+</style>

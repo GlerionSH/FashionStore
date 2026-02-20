@@ -28,6 +28,7 @@ type ProductRow = {
 	images: unknown;
 	is_active: boolean;
 	sizes?: string[];
+	size_stock?: Record<string, number>;
 	description_es?: string | null;
 	description_en?: string | null;
 };
@@ -53,7 +54,7 @@ if (categoriesError) {
 
 let productsQuery = sb
 	.from('fs_products')
-	.select('id,name,name_es,name_en,slug,price_cents,stock,category_id,images,is_active,sizes,description_es,description_en')
+	.select('id,name,name_es,name_en,slug,price_cents,stock,category_id,images,is_active,sizes,size_stock,description_es,description_en')
 	.eq('is_active', true);
 
 if (searchQuery) {
@@ -283,9 +284,19 @@ const productsHeroImg = resolveHomeImage('PUBLIC_PRODUCTS_HERO_URL', '/banner.pn
 										</p>
 									);
 								})()}
-								<p style="font-size: 0.75rem; color: #9ca3af; margin: 0;">
-									Stock: {product.stock}
+								{(() => {
+							const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
+							const isAvailable = hasSizes
+								? Object.values(product.size_stock ?? {}).some((v) => (v as number) > 0)
+								: product.stock > 0;
+							return (
+								<p style={`font-size: 0.6875rem; letter-spacing: 0.12em; text-transform: uppercase; margin: 0; color: ${isAvailable ? '#111' : '#9ca3af'};`}>
+									{isAvailable
+										? (lang === 'en' ? 'Available' : 'Disponible')
+										: (lang === 'en' ? 'Out of stock' : 'Agotado')}
 								</p>
+							);
+						})()}
 							</div>
 
 							<div style="margin-top: 1rem;">

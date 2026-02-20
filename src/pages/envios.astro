@@ -1,0 +1,101 @@
+---
+import StoreLayout from '../layouts/StoreLayout.astro';
+import { getLangFromCookie } from '../lib/i18n';
+
+export const prerender = false;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+---
+
+<StoreLayout title={lang === 'en' ? 'Shipping - Fashion Store' : 'Envíos - Fashion Store'}>
+	<section style="padding: 4rem 0;">
+		<div class="container container-sm">
+			<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #9ca3af; margin-bottom: 0.75rem;">
+				{lang === 'en' ? 'Information' : 'Información'}
+			</p>
+			<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 2.5rem;">
+				{lang === 'en' ? 'Shipping' : 'Envíos'}
+			</h1>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? 'Delivery times' : 'Plazos de entrega'}</h2>
+				<ul class="info-list">
+					<li>{lang === 'en' ? 'Standard (Península): 3–5 business days' : 'Estándar (Península): 3–5 días hábiles'}</li>
+					<li>{lang === 'en' ? 'Express (Península): 24–48 h' : 'Express (Península): 24–48 h'}</li>
+					<li>{lang === 'en' ? 'Canary Islands / Balearics: 4–7 business days' : 'Canarias / Baleares: 4–7 días hábiles'}</li>
+					<li>{lang === 'en' ? 'Europe: 5–10 business days' : 'Europa: 5–10 días hábiles'}</li>
+				</ul>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? 'Shipping costs' : 'Costes de envío'}</h2>
+				<ul class="info-list">
+					<li>{lang === 'en' ? 'Free for orders over €60 (Península)' : 'Gratis para pedidos superiores a 60 € (Península)'}</li>
+					<li>{lang === 'en' ? 'Standard Península: €3.90' : 'Estándar Península: 3,90 €'}</li>
+					<li>{lang === 'en' ? 'Canary Islands / Balearics: €7.90' : 'Canarias / Baleares: 7,90 €'}</li>
+					<li>{lang === 'en' ? 'Europe: from €12.90' : 'Europa: desde 12,90 €'}</li>
+				</ul>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? 'Order tracking' : 'Seguimiento del pedido'}</h2>
+				<p class="info-text">
+					{lang === 'en'
+						? 'Once your order is shipped you will receive an email with a tracking number to follow your package in real time.'
+						: 'Una vez que tu pedido sea enviado recibirás un correo con un número de seguimiento para localizar tu paquete en tiempo real.'}
+				</p>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? 'Important notes' : 'Notas importantes'}</h2>
+				<ul class="info-list">
+					<li>{lang === 'en' ? 'Orders placed before 13:00 are processed the same day (business days).' : 'Los pedidos realizados antes de las 13:00 se procesan el mismo día (días hábiles).'}</li>
+					<li>{lang === 'en' ? 'We do not ship to P.O. boxes.' : 'No enviamos a apartados de correos.'}</li>
+					<li>{lang === 'en' ? 'Public holidays may affect delivery times.' : 'Los días festivos pueden afectar a los plazos de entrega.'}</li>
+				</ul>
+			</div>
+
+			<p style="margin-top: 2.5rem;">
+				<a href="/contacto" style="font-size: 0.875rem; color: #111; text-decoration: underline; text-underline-offset: 4px;">
+					{lang === 'en' ? 'Questions? Contact us' : '¿Dudas? Contáctanos'}
+				</a>
+			</p>
+		</div>
+	</section>
+</StoreLayout>
+
+<style>
+	.info-block {
+		margin-bottom: 2rem;
+	}
+
+	.info-title {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		margin: 0 0 0.875rem;
+		color: #111;
+	}
+
+	.info-text {
+		font-size: 0.9375rem;
+		color: #4b5563;
+		line-height: 1.7;
+		margin: 0;
+	}
+
+	.info-list {
+		margin: 0;
+		padding-left: 1.25rem;
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.info-list li {
+		font-size: 0.9375rem;
+		color: #4b5563;
+		line-height: 1.6;
+	}
+</style>

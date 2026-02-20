@@ -1,0 +1,107 @@
+---
+import StoreLayout from '../layouts/StoreLayout.astro';
+import { getLangFromCookie } from '../lib/i18n';
+
+export const prerender = false;
+
+const rawLangCookie = Astro.cookies.get('fs_lang')?.value ?? null;
+const lang = getLangFromCookie(rawLangCookie);
+---
+
+<StoreLayout title={lang === 'en' ? 'Terms & Conditions - Fashion Store' : 'Términos y condiciones - Fashion Store'}>
+	<section style="padding: 4rem 0;">
+		<div class="container container-sm">
+			<p style="font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: #9ca3af; margin-bottom: 0.75rem;">
+				{lang === 'en' ? 'Legal' : 'Legal'}
+			</p>
+			<h1 style="font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 2.5rem;">
+				{lang === 'en' ? 'Terms & Conditions' : 'Términos y condiciones'}
+			</h1>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? '1. General information' : '1. Información general'}</h2>
+				<p class="info-text">
+					{lang === 'en'
+						? 'These terms and conditions govern the use of this website and the purchase of products available on it. By placing an order you accept these terms in full.'
+						: 'Estos términos y condiciones regulan el uso de este sitio web y la compra de productos disponibles en él. Al realizar un pedido aceptas íntegramente estas condiciones.'}
+				</p>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? '2. Products and prices' : '2. Productos y precios'}</h2>
+				<ul class="info-list">
+					<li>{lang === 'en' ? 'All prices are shown in euros (€) and include VAT where applicable.' : 'Todos los precios se muestran en euros (€) e incluyen el IVA cuando corresponda.'}</li>
+					<li>{lang === 'en' ? 'We reserve the right to modify prices at any time without prior notice.' : 'Nos reservamos el derecho a modificar los precios en cualquier momento sin previo aviso.'}</li>
+					<li>{lang === 'en' ? 'Product images are illustrative. Slight colour variations may occur depending on your screen settings.' : 'Las imágenes de los productos son ilustrativas. Pueden existir ligeras variaciones de color según la configuración de tu pantalla.'}</li>
+				</ul>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? '3. Orders and payment' : '3. Pedidos y pago'}</h2>
+				<ul class="info-list">
+					<li>{lang === 'en' ? 'Orders are subject to product availability and payment confirmation.' : 'Los pedidos están sujetos a la disponibilidad del producto y a la confirmación del pago.'}</li>
+					<li>{lang === 'en' ? 'We accept credit/debit card, and other methods available at checkout.' : 'Aceptamos tarjeta de crédito/débito y otros métodos disponibles en la pasarela de pago.'}</li>
+					<li>{lang === 'en' ? 'Payment is processed securely through Stripe.' : 'El pago se procesa de forma segura a través de Stripe.'}</li>
+					<li>{lang === 'en' ? 'You will receive a confirmation email once your order is placed.' : 'Recibirás un correo de confirmación una vez que tu pedido sea registrado.'}</li>
+				</ul>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? '4. Intellectual property' : '4. Propiedad intelectual'}</h2>
+				<p class="info-text">
+					{lang === 'en'
+						? 'All content on this website (images, texts, logos, design) is protected by intellectual property rights and may not be reproduced without express written permission.'
+						: 'Todo el contenido de este sitio web (imágenes, textos, logotipos, diseño) está protegido por derechos de propiedad intelectual y no puede reproducirse sin autorización escrita expresa.'}
+				</p>
+			</div>
+
+			<div class="info-block">
+				<h2 class="info-title">{lang === 'en' ? '5. Applicable law' : '5. Legislación aplicable'}</h2>
+				<p class="info-text">
+					{lang === 'en'
+						? 'These terms are governed by Spanish law. Any disputes shall be submitted to the courts of Cádiz, Spain.'
+						: 'Estas condiciones se rigen por la legislación española. Cualquier disputa se someterá a los juzgados y tribunales de Cádiz, España.'}
+				</p>
+			</div>
+
+			<p style="font-size: 0.8125rem; color: #9ca3af; margin-top: 2.5rem;">
+				{lang === 'en' ? 'Last updated: January 2025' : 'Última actualización: enero de 2025'}
+			</p>
+		</div>
+	</section>
+</StoreLayout>
+
+<style>
+	.info-block {
+		margin-bottom: 2rem;
+	}
+
+	.info-title {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		margin: 0 0 0.875rem;
+		color: #111;
+	}
+
+	.info-text {
+		font-size: 0.9375rem;
+		color: #4b5563;
+		line-height: 1.7;
+		margin: 0;
+	}
+
+	.info-list {
+		margin: 0;
+		padding-left: 1.25rem;
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.info-list li {
+		font-size: 0.9375rem;
+		color: #4b5563;
+		line-height: 1.6;
+	}
+</style>

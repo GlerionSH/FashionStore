@@ -175,6 +175,9 @@ const lang = getLangFromCookie(rawLangCookie);
 						<a href="/admin-fs/ofertas" style={`font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;${currentPath === '/admin-fs/ofertas' ? 'color:#111;' : 'color:#6b7280;'}`}>
 							{lang === 'en' ? 'Offers' : 'Ofertas'}
 						</a>
+						<a href="/admin-fs/soporte" style={`font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;${currentPath.startsWith('/admin-fs/soporte') ? 'color:#111;' : 'color:#6b7280;'}`}>
+							{lang === 'en' ? 'Support' : 'Soporte'}
+						</a>
 						<a href="/" style="font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280;">
 							{lang === 'en' ? 'Store' : 'Tienda'}
 						</a>
