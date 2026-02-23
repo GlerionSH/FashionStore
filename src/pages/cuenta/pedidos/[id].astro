@@ -16,6 +16,8 @@ type OrderRow = {
 	subtotal_cents: number;
 	discount_cents: number;
 	status: string;
+	invoice_token: string | null;
+	invoice_number: string | null;
 };
 
 type OrderItemRow = {
@@ -71,7 +73,7 @@ if (!orderId) {
 } else {
 	const { data: orderData, error: orderError } = await (sb as any)
 		.from('fs_orders')
-		.select('id,created_at,subtotal_cents,discount_cents,total_cents,status,user_id')
+		.select('id,created_at,subtotal_cents,discount_cents,total_cents,status,user_id,invoice_token,invoice_number')
 		.eq('id', orderId)
 		.eq('user_id', user.id)
 		.maybeSingle();
@@ -195,9 +197,20 @@ const formatReturnStatus = (status: string): string => {
 								{order.id}
 							</p>
 						</div>
-						<span style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.375rem 0.75rem; background: #111; color: #fff;">
-							{formatOrderStatus(order.status)}
-						</span>
+						<div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+							{order.status === 'paid' && order.invoice_token && (
+								<a
+									href={`/api/orders/${encodeURIComponent(order.id)}/invoice.pdf?token=${encodeURIComponent(order.invoice_token)}`}
+									download
+									style="font-size: 0.75rem; color: #111; text-decoration: underline; white-space: nowrap;"
+								>
+									{lang === 'en' ? 'Download invoice (PDF)' : 'Descargar factura (PDF)'}
+								</a>
+							)}
+							<span style="font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.375rem 0.75rem; background: #111; color: #fff;">
+								{formatOrderStatus(order.status)}
+							</span>
+						</div>
 					</div>
 
 					<!-- Order Info -->

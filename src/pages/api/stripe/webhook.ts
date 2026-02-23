@@ -86,12 +86,15 @@ export const POST: APIRoute = async ({ request }) => {
 				return json(200, { ok: true, missing_order_id: true });
 			}
 
+			// Capture guest email from PaymentIntent receipt_email or metadata
+			const piCustomerEmail = pi.receipt_email ?? (pi.metadata?.customer_email ?? null);
+
 			const { data: finalizeRows, error: finalizeError } = await (adminSb as any).rpc(
 				'fs_finalize_order_paid',
 				{
 					order_id: orderId,
 					stripe_payment_intent_id: pi.id,
-					customer_email: null,
+					customer_email: piCustomerEmail,
 					stripe_session_id: null,
 				}
 			);
@@ -164,6 +167,17 @@ export const POST: APIRoute = async ({ request }) => {
 				if (paidOrder?.email_sent_at) {
 					console.info('[webhook] email already sent, skip', { order_id: orderId });
 					return json(200, { ok: true, status: 'email_already_sent' });
+				}
+
+				// Safety-net: if RPC did not persist the guest email, write it now
+				if (paidOrder && !paidOrder.email && piCustomerEmail) {
+					console.info('[webhook] backfilling missing email on order', { order_id: orderId });
+					await adminSb
+						.from('fs_orders')
+						.update({ email: piCustomerEmail })
+						.eq('id', orderId)
+						.is('email', null);
+					paidOrder.email = piCustomerEmail;
 				}
 
 				const { data: items } = await adminSb
@@ -298,6 +312,17 @@ export const POST: APIRoute = async ({ request }) => {
 				if (paidOrder?.email_sent_at) {
 					console.info('[webhook] email already sent, skip', { order_id: orderId });
 					return json(200, { ok: true, status: 'email_already_sent' });
+				}
+
+				// Safety-net: if RPC did not persist the guest email, write it now
+				if (paidOrder && !paidOrder.email && customerEmail) {
+					console.info('[webhook] backfilling missing email on order', { order_id: orderId });
+					await adminSb
+						.from('fs_orders')
+						.update({ email: customerEmail })
+						.eq('id', orderId)
+						.is('email', null);
+					paidOrder.email = customerEmail;
 				}
 
 				const { data: items } = await adminSb

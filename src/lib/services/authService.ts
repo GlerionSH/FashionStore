@@ -155,7 +155,7 @@ export async function getCurrentSession() {
 export async function resetPassword(email: string): Promise<AuthResponse> {
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${import.meta.env.PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/reset-password`,
+      redirectTo: `${import.meta.env.PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')}/auth/reset-password`,
     });
 
     if (error) {

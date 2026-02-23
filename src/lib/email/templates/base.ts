@@ -65,7 +65,7 @@ export const renderBaseEmail = ({
 							<table width="100%" cellpadding="0" cellspacing="0" role="presentation">
 								<tr>
 									<td align="left" style="vertical-align:middle;">
-										${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="FASHION STORE" style="height:28px; width:auto; display:block;" />` : `<div style="font-weight:700; letter-spacing:0.18em; font-size:14px;">FASHION STORE</div>`}
+										${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="FASHION STORE" style="height:48px; width:auto; display:block;" />` : `<div style="font-weight:700; letter-spacing:0.18em; font-size:14px;">FASHION STORE</div>`}
 									</td>
 									<td align="right" style="vertical-align:middle;">
 										<div style="font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:#6b7280;">${escapeHtml(title)}</div>
